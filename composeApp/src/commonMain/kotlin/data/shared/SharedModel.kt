@@ -2,6 +2,8 @@ package data.shared
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import base.utils.MatrixUtils.AUGMY_HOMESERVER_IDENTIFIER
+import base.utils.MatrixUtils.AUGMY_HOME_SERVER_ADDRESS
 import base.utils.NetworkConnectivity
 import base.utils.NetworkSpeed
 import base.utils.asSimpleString
@@ -28,8 +30,6 @@ import org.koin.core.context.loadKoinModules
 import org.koin.core.context.unloadKoinModules
 import org.koin.mp.KoinPlatform
 import ui.home.homeModule
-import ui.login.homeserver_picker.AUGMY_HOMESERVER_IDENTIFIER
-import ui.login.homeserver_picker.AUGMY_HOME_SERVER_ADDRESS
 import ui.login.homeserver_picker.HomeserverPickerModel
 import utils.SharedLogger
 

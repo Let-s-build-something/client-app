@@ -8,6 +8,7 @@ import augmy.interactive.shared.ext.ifNull
 import augmy.interactive.shared.ui.components.input.DELAY_BETWEEN_TYPING_SHORT
 import augmy.interactive.shared.utils.DateUtils.localNow
 import augmy.interactive.shared.utils.PersistentListData
+import base.utils.MatrixUtils
 import base.utils.getUrlExtension
 import base.utils.toSha256
 import components.pull_refresh.RefreshableViewModel
@@ -449,22 +450,21 @@ open class ConversationModel(
         }
     }
 
-    private fun joinRoom(reason: String) {
-        if (_uiMode.value != UiMode.Preview) return
+    private suspend fun joinRoom(reason: String): Boolean {
+        if (_uiMode.value != UiMode.Preview) return false
 
         _joinResponse.value = BaseResponse.Loading
-        viewModelScope.launch {
-            matrixClient?.api?.room?.joinRoom(
-                roomId = RoomId(conversationId.value),
-                reason = reason.takeIf { it.isNotBlank() }
-            )?.getOrElse { error ->
-                _joinResponse.value = BaseResponse.Error(code = error.message)
-                null
-            }?.let {
-                _uiMode.value = UiMode.Idle
-                _joinResponse.value = BaseResponse.Success(it)
-            }
-        }
+        return matrixClient?.api?.room?.joinRoom(
+            roomId = RoomId(conversationId.value),
+            reason = reason.takeIf { it.isNotBlank() }
+        )?.getOrElse { error ->
+            _joinResponse.value = BaseResponse.Error(code = error.message)
+            null
+        }?.let {
+            _uiMode.value = UiMode.Idle
+            _joinResponse.value = BaseResponse.Success(it)
+            true
+        }.ifNull { false }
     }
 
     private fun knockOnRoom(reason: String) {
@@ -484,14 +484,14 @@ open class ConversationModel(
         }
     }
 
-    private suspend fun createMissingRoom() {
+    private suspend fun createMissingRoom(): Boolean {
         if (_membersToInvite.value.size == 1) {
             _membersToInvite.value.firstOrNull()?.userId?.let {
                 repository.getRoomIdByUser(it)?.let { userId ->
                     conversationId.value = userId
                     _uiMode.value = UiMode.Idle
                     onDataRequest(isSpecial = false, isPullRefresh = false)
-                    if (conversationId.value.isNotBlank()) return
+                    if (conversationId.value.isNotBlank()) return false
                 }
             }
         }
@@ -501,12 +501,13 @@ open class ConversationModel(
             userId?.let { add(UserId(it)) }
         }
 
-        matrixClient?.api?.room?.createRoom(
+        return matrixClient?.api?.room?.createRoom(
             visibility = DirectoryVisibility.PRIVATE,
             initialState = listOf<InitialStateEvent<*>>(
                 InitialStateEvent(GuestAccessEventContent(GuestAccessEventContent.GuestAccessType.FORBIDDEN), ""),
                 InitialStateEvent(HistoryVisibilityEventContent(HistoryVisibility.INVITED), ""),
-                InitialStateEvent(EncryptionEventContent(algorithm = EncryptionAlgorithm.Megolm), "")
+                InitialStateEvent(EncryptionEventContent(algorithm = EncryptionAlgorithm.Megolm), ""),
+                MatrixUtils.defaultRoomPowerLevels
             ),
             roomVersion = "11",
             isDirect = userId != null,
@@ -535,7 +536,8 @@ open class ConversationModel(
                 )
             }
             conversationId.value = newConversationId
-        }
+            true
+        }.ifNull { false }
     }
 
     /**
@@ -554,12 +556,24 @@ open class ConversationModel(
         showPreview: Boolean
     ) {
         CoroutineScope(Job()).launch {
+            val repeat = {
+                sendMessage(
+                    content = content,
+                    anchorMessage = anchorMessage,
+                    mediaFiles = mediaFiles,
+                    mediaUrls = mediaUrls,
+                    timings = timings,
+                    gravityValues = gravityValues,
+                    gifAsset = gifAsset,
+                    showPreview = showPreview
+                )
+            }
             when (_uiMode.value) {
                 UiMode.CreateRoomNoMembers, UiMode.IdleNoRoom -> {  // no conversation room yet, let's create it
-                    createMissingRoom()
+                    if (createMissingRoom()) repeat()
                 }
                 UiMode.Preview -> {
-                    joinRoom(content)
+                    if (joinRoom(content)) repeat()
                 }
                 UiMode.Knock -> {
                     knockOnRoom(content)

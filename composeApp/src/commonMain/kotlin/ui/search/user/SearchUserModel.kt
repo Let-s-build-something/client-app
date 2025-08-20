@@ -30,7 +30,7 @@ class SearchUserModel(
 
     /** Queries both for local and remote users that match the searched term */
     fun queryUsers(prompt: CharSequence, excludeUsers: List<String>) {
-        if(prompt.isBlank()) return
+        if(prompt.isBlank() && _users.value.isNullOrEmpty()) return
 
         viewModelScope.launch(Dispatchers.Default) {
             _users.value = repository.queryForUsers(

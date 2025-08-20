@@ -3,8 +3,8 @@ package data.shared.auth
 import augmy.interactive.shared.ext.ifNull
 import augmy.interactive.shared.ui.base.currentPlatform
 import augmy.interactive.shared.utils.DateUtils
-import base.utils.Matrix
-import base.utils.Matrix.ErrorCode.UNKNOWN_TOKEN
+import base.utils.MatrixUtils
+import base.utils.MatrixUtils.ErrorCode.UNKNOWN_TOKEN
 import base.utils.deviceName
 import base.utils.orZero
 import base.utils.toSha256
@@ -476,7 +476,7 @@ class AuthService {
                             identifier = identifier,
                             initialDeviceDisplayName = deviceName() ?: currentPlatform.name,
                             password = password,
-                            type = if(token != null) Matrix.LOGIN_TOKEN else Matrix.LOGIN_PASSWORD,
+                            type = if(token != null) MatrixUtils.LOGIN_TOKEN else MatrixUtils.LOGIN_PASSWORD,
                             deviceId = getDeviceId(),
                             token = token
                         )

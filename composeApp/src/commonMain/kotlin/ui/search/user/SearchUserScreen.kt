@@ -1,6 +1,10 @@
 package ui.search.user
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,12 +14,14 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.input.ImeAction
@@ -24,9 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import augmy.composeapp.generated.resources.Res
 import augmy.composeapp.generated.resources.action_search_users
+import augmy.composeapp.generated.resources.button_invite
 import augmy.composeapp.generated.resources.screen_search_user
+import augmy.composeapp.generated.resources.search_user_information
 import augmy.interactive.shared.ext.scalingClickable
 import augmy.interactive.shared.ui.base.LocalNavController
+import augmy.interactive.shared.ui.components.BrandHeaderButton
 import augmy.interactive.shared.ui.components.input.CustomTextField
 import augmy.interactive.shared.ui.components.input.DELAY_BETWEEN_TYPING_SHORT
 import augmy.interactive.shared.ui.theme.LocalTheme
@@ -52,7 +61,8 @@ import kotlin.uuid.Uuid
 @Composable
 fun SearchUserScreen(
     excludeUsers: List<String>?,
-    awaitingResult: Boolean?
+    awaitingResult: Boolean?,
+    isInvitation: Boolean
 ) {
     loadKoinModules(searchUserModule)
     val model = koinViewModel<SearchUserModel>()
@@ -91,28 +101,74 @@ fun SearchUserScreen(
         )
     }
 
+    val selectUser: (NetworkItemIO) -> Unit = { user ->
+        if(awaitingResult == true) {
+            model.saveUser(user) {
+                navController?.previousBackStackEntry?.savedStateHandle?.set(
+                    key = NavigationArguments.SEARCH_USER_ID,
+                    value = user.userId
+                )
+                navController?.navigateUp()
+            }
+        }else {
+            model.saveUser(user)
+            selectedUser.value = user
+        }
+    }
+
     BrandBaseScreen(
         title = stringResource(Res.string.screen_search_user),
         navIconType = NavIconType.CLOSE
     ) {
         LazyColumn {
             stickyHeader {
-                CustomTextField(
-                    modifier = Modifier
-                        .zIndex(1f)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .fillMaxWidth(),
-                    focusRequester = focusRequester,
-                    shape = LocalTheme.current.shapes.rectangularActionShape,
-                    hint = stringResource(Res.string.action_search_users),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Search
-                    ),
-                    prefixIcon = Icons.Outlined.Search,
-                    state = searchState,
-                    isClearable = true
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    CustomTextField(
+                        modifier = Modifier
+                            .zIndex(1f)
+                            .padding(vertical = 12.dp)
+                            .weight(1f),
+                        focusRequester = focusRequester,
+                        hint = stringResource(Res.string.action_search_users),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Search
+                        ),
+                        onKeyboardAction = {
+                            if (isInvitation) {
+                                selectUser(NetworkItemIO(userId = searchState.text.toString()))
+                            }
+                        },
+                        prefixIcon = Icons.Outlined.Search,
+                        state = searchState,
+                        isClearable = true
+                    )
+
+                    AnimatedVisibility(isInvitation) {
+                        BrandHeaderButton(
+                            text = stringResource(Res.string.button_invite),
+                            shape = LocalTheme.current.shapes.rectangularActionShape
+                        ) {
+                            selectUser(NetworkItemIO(userId = searchState.text.toString()))
+                        }
+                    }
+                }
+            }
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(Res.string.search_user_information),
+                        style = LocalTheme.current.styles.regular.copy(
+                            color = LocalTheme.current.colors.disabled
+                        )
+                    )
+                }
             }
             items(
                 items = users.value ?: arrayOfNulls<NetworkItemIO>(ITEMS_COUNT).toList().takeIf {
@@ -125,20 +181,7 @@ fun SearchUserScreen(
                         .animateItem()
                         .padding(horizontal = 16.dp)
                         .scalingClickable(scaleInto = .95f) {
-                            if(user != null) {
-                                if(awaitingResult == true) {
-                                    model.saveUser(user) {
-                                        navController?.previousBackStackEntry?.savedStateHandle?.set(
-                                            key = NavigationArguments.SEARCH_USER_ID,
-                                            value = user.userId
-                                        )
-                                        navController?.navigateUp()
-                                    }
-                                }else {
-                                    model.saveUser(user)
-                                    selectedUser.value = user
-                                }
-                            }
+                            if(user != null) selectUser(user)
                         }
                         .fillMaxWidth(),
                     highlight = searchState.text.toString().lowercase(),

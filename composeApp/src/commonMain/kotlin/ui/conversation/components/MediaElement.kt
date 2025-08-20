@@ -45,7 +45,7 @@ import augmy.composeapp.generated.resources.logo_powerpoint
 import augmy.interactive.shared.ext.scalingClickable
 import augmy.interactive.shared.ui.theme.LocalTheme
 import base.theme.Colors
-import base.utils.Matrix.Media.MATRIX_REPOSITORY_PREFIX
+import base.utils.MatrixUtils.Media.MATRIX_REPOSITORY_PREFIX
 import base.utils.MediaType
 import base.utils.PlatformFileShell
 import base.utils.getExtensionFromMimeType

@@ -33,10 +33,10 @@ import androidx.compose.ui.unit.dp
 import augmy.composeapp.generated.resources.Res
 import augmy.composeapp.generated.resources.accessibility_cancel
 import augmy.composeapp.generated.resources.accessibility_save
-import augmy.composeapp.generated.resources.button_block
 import augmy.composeapp.generated.resources.button_confirm
 import augmy.composeapp.generated.resources.button_dismiss
 import augmy.composeapp.generated.resources.button_mute
+import augmy.composeapp.generated.resources.button_remove
 import augmy.composeapp.generated.resources.network_action_circle_move
 import augmy.composeapp.generated.resources.network_dialog_message_block
 import augmy.composeapp.generated.resources.network_dialog_message_mute
@@ -176,9 +176,9 @@ fun SocialItemActions(
             ScalingIcon(
                 color = SharedColors.RED_ERROR.copy(.6f),
                 imageVector = Icons.Outlined.FaceRetouchingOff,
-                contentDescription = stringResource(Res.string.button_block),
+                contentDescription = stringResource(Res.string.button_remove),
                 onClick = {
-                    showActionDialog.value = OptionsLayoutAction.Block
+                    showActionDialog.value = OptionsLayoutAction.Remove
                 }
             )
             ScalingIcon(

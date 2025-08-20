@@ -68,10 +68,11 @@ sealed class NavigationNode {
     data class SearchUser(
         /** If true, there is no user detail and the user is just selected on tap */
         val awaitingResult: Boolean = false,
+        val isInvitation: Boolean = false,
         val excludeUsers: String = ""
     ): NavigationNode() {
         @Transient override val titleRes: StringResource = Res.string.screen_search_user
-        override val deepLink: String = "users/search?awaitingResult=$awaitingResult&excludeUsers=$excludeUsers"
+        override val deepLink: String = "users/search?awaitingResult=$awaitingResult&excludeUsers=$excludeUsers&isInvitation=$isInvitation"
     }
 
     @Serializable

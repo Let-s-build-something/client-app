@@ -74,6 +74,7 @@
   <string name="login_email_verification_heading">Email verification</string>
   <string name="login_email_verification_message">The homeserver allows only verified emails. So, an email was tossed your way, to </string>
   <string name="login_email_verification_action">Closest post office</string>
+  <string name="login_email_confirmation_check">Check confirmation</string>
   <string name="login_email_verification_repeat">Try again</string>
   <string name="no_email_client_error">We failed opening an email client. Please, open your preferred client and check for the verification email:-).</string>
   <string name="homeserver_picker_address_error">Incorrect address, you can always select existing ones.</string>
@@ -222,11 +223,28 @@
   <string name="conversation_knock_title">Knock knock...</string>
   <string name="conversation_knock_helper">Who's there?\nInvite-only room\nSend a message with your invite request.</string>
   <string name="conversation_restricted_title">This conversation is restricted :(.\nYou shall not pass.</string>
+  <string name="conversation_power_title">Change power</string>
+  <string name="conversation_power_message">Different power levels allow %1$s to do different things.</string>
+  <string name="conversation_ban_title">Ban member</string>
+  <string name="conversation_ban_message">A ban forces %1$s to leave and prevents them from re-joining until an admin removes the ban.</string>
+  <string name="conversation_power_kick">Kicking members</string>
+  <string name="conversation_power_ban">Banning members</string>
+  <string name="conversation_power_manage">Changing power of members</string>
+  <string name="conversation_power_invite">Send invitations</string>
+  <string name="conversation_power_redact">Modifying others' messages</string>
+  <string name="conversation_power_avatar">Changing room avatar</string>
+  <string name="conversation_power_name">Changing room name</string>
+  <string name="conversation_power_none">No permissions</string>
+  <string name="conversation_role_admin">Admin</string>
+  <string name="conversation_role_moderator">Moderator</string>
+  <string name="conversation_role_member">Member</string>
+  <string name="conversation_role_user">User</string>
 
   <string name="message_room_invite">got invited.</string>
   <string name="message_room_join">joined the room.</string>
   <string name="message_room_knock">knocked on this room.</string>
   <string name="message_room_leave">left.</string>
+  <string name="message_room_kick">%1$s kicked %2$s.</string>
   <string name="message_room_ban">got banned.</string>
   <string name="message_decryption_failed">Failed to decrypt this message, try again.</string>
   <string name="error_permission">You don't have permission to do that.</string>
@@ -267,6 +285,7 @@
   <string name="action_filter_emojis">Filter emojis</string>
   <string name="action_search_gifs">Search GIPHY</string>
   <string name="action_search_users">Search the horizon</string>
+  <string name="search_user_information">Some result may be unavailable due to privacy reasons.</string>
 
   <string name="image_field_url_hint">URL of an image.</string>
   <string name="image_field_url_error_formats">An error occurred, the supported formats are: PNG, JPG, WebP, GIF, BMP, HEIF, AVIF and SVG.\n(Your URL must end with ".png", ".jpg", etc.)</string>
@@ -278,7 +297,9 @@
   <string name="button_invite">Invite</string>
   <string name="button_select_all">Select all</string>
   <string name="button_deselect">Deselect</string>
-  <string name="button_block">Remove</string>
+  <string name="button_remove">Remove</string>
+  <string name="button_power">Power</string>
+  <string name="button_block">Block</string>
   <string name="button_verify">Verify</string>
   <string name="button_accept">Accept</string>
   <string name="button_mute">Mute</string>

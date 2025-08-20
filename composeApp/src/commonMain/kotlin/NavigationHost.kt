@@ -121,7 +121,8 @@ fun NavigationHost(
             composable<NavigationNode.SearchUser> {
                 SearchUserScreen(
                     awaitingResult = it.arguments?.getBoolean("awaitingResult"),
-                    excludeUsers = it.arguments?.getString("excludeUsers")?.split(",")
+                    excludeUsers = it.arguments?.getString("excludeUsers")?.split(","),
+                    isInvitation = it.arguments?.getBoolean("isInvitation") == true
                 )
             }
             composable<NavigationNode.SearchRoom> {

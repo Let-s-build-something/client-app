@@ -61,6 +61,14 @@ interface NetworkItemDao {
         ownerPublicId: String?
     ): NetworkItemIO?
 
+    @Query("DELETE FROM ${AppRoomDatabase.TABLE_NETWORK_ITEM} " +
+            "WHERE user_id = :userId " +
+            "AND owner_user_id = :ownerPublicId ")
+    suspend fun remove(
+        userId: String?,
+        ownerPublicId: String?
+    )
+
     /** Returns all network items specific to proximity bounds as defined by [proximityMin] and [proximityMax] */
     @Query("SELECT * FROM ${AppRoomDatabase.TABLE_NETWORK_ITEM} " +
             "WHERE owner_user_id = :ownerPublicId " +

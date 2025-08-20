@@ -1,6 +1,7 @@
 package utils
 
 import augmy.interactive.shared.utils.DateUtils
+import base.utils.MatrixUtils
 import data.io.app.SecureSettingsKeys
 import data.io.app.SettingsKeys.KEY_REFEREE_USER_ID
 import data.io.matrix.room.ConversationRoomIO
@@ -37,10 +38,11 @@ object ReferralUtils {
         settings.getString(KEY_REFEREE_USER_ID, "").takeIf { it.isNotBlank() }?.let { userId ->
             client.api.room.createRoom(
                 visibility = DirectoryVisibility.PRIVATE,
-                initialState = listOf<InitialStateEvent<*>>(
+                initialState = listOf(
                     InitialStateEvent(GuestAccessEventContent(GuestAccessEventContent.GuestAccessType.FORBIDDEN), ""),
                     InitialStateEvent(HistoryVisibilityEventContent(HistoryVisibility.INVITED), ""),
-                    InitialStateEvent(EncryptionEventContent(algorithm = EncryptionAlgorithm.Megolm), "")
+                    InitialStateEvent(EncryptionEventContent(algorithm = EncryptionAlgorithm.Megolm), ""),
+                    MatrixUtils.defaultRoomPowerLevels
                 ),
                 roomVersion = "11",
                 isDirect = true,

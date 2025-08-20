@@ -6,9 +6,11 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import base.global.verification.ComparisonByUserData
+import base.utils.orZero
 import base.utils.tagToColor
 import data.NetworkProximityCategory
 import data.io.base.BaseResponse
+import data.io.matrix.room.FullConversationRoom
 import data.io.matrix.room.event.ConversationRoomMember
 import data.io.social.network.conversation.message.MediaIO
 import data.io.user.NetworkItemIO
@@ -30,15 +32,19 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Contextual
 import net.folivo.trixnity.client.verification
 import net.folivo.trixnity.client.verification.ActiveUserVerification
 import net.folivo.trixnity.client.verification.ActiveVerificationState
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.EventType
 import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
 import net.folivo.trixnity.core.model.events.m.room.ImageInfo
+import net.folivo.trixnity.core.model.events.m.room.Membership
 import net.folivo.trixnity.core.model.events.m.room.NameEventContent
+import net.folivo.trixnity.core.model.events.m.room.PowerLevelsEventContent
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import ui.conversation.ConversationDataManager
@@ -103,7 +109,7 @@ class ConversationSettingsModel(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val myPowerLevel = _conversation.mapLatest {
-        it?.data?.summary?.powerLevels?.users?.get(UserId(matrixUserId ?: "")) ?: it?.data?.summary?.powerLevels?.usersDefault
+        it?.data?.summary?.powerLevels?.users?.get(UserId(matrixUserId ?: "")) ?: it?.data?.summary?.powerLevels?.usersDefault.orZero()
     }
 
     /** Customized social circle colors */
@@ -125,7 +131,24 @@ class ConversationSettingsModel(
                         conversationId = conversationId,
                         owner = matrixUserId
                     )?.let { data ->
-                        dataManager.updateConversations { it.apply { this[conversationId] = data } }
+                        dataManager.updateConversations { prev ->
+                            prev.apply {
+                                this[conversationId] = if (data.data.summary?.powerLevels == null) {
+                                    data.copy(
+                                        data = data.data.copy(
+                                            summary = data.data.summary?.copy(
+                                                powerLevels = matrixClient?.api?.room?.getStateEvent(
+                                                    "m.room.power_levels",
+                                                    RoomId(conversationId)
+                                                )?.getOrNull() as? PowerLevelsEventContent
+                                            )
+                                        ).also {
+                                            repository.updateRoom(it)
+                                        }
+                                    )
+                                } else data
+                            }
+                        }
                         _conversation.value = data
                     }
                 }
@@ -143,12 +166,97 @@ class ConversationSettingsModel(
 
 
     /** Removes a member out of a conversation */
-    fun kickMember(memberId: String) {
+    fun kickMember(member: ConversationRoomMember, onFinish: () -> Unit) {
         viewModelScope.launch {
             sharedDataManager.matrixClient.value?.api?.room?.kickUser(
                 roomId = RoomId(conversationId),
-                userId = UserId(memberId)
+                userId = UserId(member.userId)
             )
+            repository.updateRoomMember(member.copy(membership = Membership.LEAVE))
+            onFinish()
+        }
+    }
+
+    fun banMember(member: ConversationRoomMember, onFinish: () -> Unit) {
+        viewModelScope.launch {
+            sharedDataManager.matrixClient.value?.api?.room?.banUser(
+                roomId = RoomId(conversationId),
+                userId = UserId(member.userId)
+            )
+            repository.updateRoomMember(member.copy(membership = Membership.BAN))
+            onFinish()
+        }
+    }
+
+    fun changePowerOf(member: ConversationRoomMember, power: Long) {
+        viewModelScope.launch {
+            val update = ((matrixClient?.api?.room?.getStateEvent(
+                "m.room.power_levels",
+                RoomId(conversationId)
+            )?.getOrNull() as? PowerLevelsEventContent) ?: conversation.value?.data?.summary?.powerLevels)?.let {
+                it.copy(
+                    users = it.users.plus(UserId(member.userId) to power)
+                )
+            }
+
+            if (update != null) {
+                if (matrixClient?.api?.room?.sendStateEvent(
+                    roomId = RoomId(conversationId),
+                    eventContent = update
+                )?.getOrNull() != null) {
+                    conversation.value?.data?.copy(
+                        summary = conversation.value?.data?.summary?.copy(powerLevels = update)
+                    )?.let { newRoom ->
+                        repository.updateRoom(newRoom)
+                        dataManager.updateConversations { prev ->
+                            prev.apply {
+                                this[conversationId] = this[conversationId]?.copy(data = newRoom) ?: FullConversationRoom(newRoom)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateRoomPowers(
+        invite: Long,
+        ban: Long,
+        kick: Long,
+        redact: Long,
+        events: Map<@Contextual EventType, Long>
+    ) {
+        viewModelScope.launch {
+            val update = ((matrixClient?.api?.room?.getStateEvent(
+                "m.room.power_levels",
+                RoomId(conversationId)
+            )?.getOrNull() as? PowerLevelsEventContent) ?: conversation.value?.data?.summary?.powerLevels)?.let {
+                it.copy(
+                    invite = invite,
+                    ban = ban,
+                    kick = kick,
+                    redact = redact,
+                    events = it.events + events
+                )
+            }
+
+            if (update != null) {
+                if (matrixClient?.api?.room?.sendStateEvent(
+                    roomId = RoomId(conversationId),
+                    eventContent = update
+                )?.getOrNull() != null) {
+                    conversation.value?.data?.copy(
+                        summary = conversation.value?.data?.summary?.copy(powerLevels = update)
+                    )?.let { newRoom ->
+                        repository.updateRoom(newRoom)
+                        dataManager.updateConversations { prev ->
+                            prev.apply {
+                                this[conversationId] = this[conversationId]?.copy(data = newRoom) ?: FullConversationRoom(newRoom)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -222,7 +330,7 @@ class ConversationSettingsModel(
             matrixClient?.verification?.getActiveUserVerification(
                 roomId = RoomId(conversationId),
                 eventId = EventId(message.id)
-            )?.takeIf { !unfinishedOnly || it.state.value.isFinished() == false }
+            )?.takeIf { !unfinishedOnly || !it.state.value.isFinished() }
         } else null
     }
 
@@ -256,22 +364,42 @@ class ConversationSettingsModel(
         }
     }
 
-    fun inviteMembers(userId: String) {
+    fun inviteMembers(user: NetworkItemIO) {
         _ongoingChange.value = ChangeType.InviteMember(BaseResponse.Loading)
         viewModelScope.launch {
+            val newMember = ConversationRoomMember(
+                userId = user.userId ?: "",
+                displayName = user.displayName,
+                avatarUrl = user.avatar?.url,
+                roomId = conversationId,
+                membership = Membership.INVITE
+            )
             sharedDataManager.matrixClient.value?.api?.room?.inviteUser(
                 roomId = RoomId(conversationId),
-                userId = UserId(userId)
+                userId = UserId(user.userId ?: "")
             ).also { res ->
                 _ongoingChange.value = ChangeType.InviteMember(
                     if(res?.getOrNull() != null) {
                         dataManager.updateConversations { prev ->
                             prev.apply {
-                                // TODO change locally
+                                this[conversationId]?.let {
+                                    this[conversationId] = it.copy(
+                                        data = it.data,
+                                        members = this[conversationId]?.members?.toMutableList()?.apply {
+                                            add(newMember)
+                                        }?.toList() ?: emptyList()
+                                    )
+                                }
                             }
                         }
+                        repository.updateRoomMember(newMember)
                         BaseResponse.Success(null)
-                    }else BaseResponse.Error()
+                    }else {
+                        if (user.displayName == null && user.avatarUrl == null) {
+                            repository.removeUser(user.userId ?: "", matrixUserId)
+                        }
+                        BaseResponse.Error()
+                    }
                 )
             }
         }

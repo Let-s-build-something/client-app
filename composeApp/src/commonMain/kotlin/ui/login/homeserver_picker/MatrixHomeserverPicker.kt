@@ -40,6 +40,8 @@ import augmy.interactive.shared.ui.components.BrandHeaderButton
 import augmy.interactive.shared.ui.components.SimpleModalBottomSheet
 import augmy.interactive.shared.ui.components.input.CustomTextField
 import augmy.interactive.shared.ui.theme.LocalTheme
+import base.utils.MatrixUtils.AUGMY_HOMESERVER_IDENTIFIER
+import base.utils.MatrixUtils.MATRIX_HOME_SERVER
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.context.loadKoinModules
@@ -202,8 +204,3 @@ fun MatrixHomeserverPicker(
         }
     }
 }
-
-const val MATRIX_HOME_SERVER = "matrix.org"
-const val AUGMY_HOMESERVER_IDENTIFIER = "augmy.org"
-const val AUGMY_HOME_SERVER_ADDRESS = "homeserver.augmy.org"
-const val AUGMY_INTERNAL_ROOM_ID = "!gAnKoCsLRBAAppnYpK:augmy.org"

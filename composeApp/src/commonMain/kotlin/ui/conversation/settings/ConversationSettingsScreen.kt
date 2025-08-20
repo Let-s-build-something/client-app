@@ -28,12 +28,14 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Face
 import androidx.compose.material.icons.outlined.FaceRetouchingOff
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Moving
 import androidx.compose.material.icons.outlined.PersonAddAlt
 import androidx.compose.material.icons.outlined.PersonRemove
 import androidx.compose.material.icons.outlined.QuestionAnswer
@@ -69,12 +71,16 @@ import augmy.composeapp.generated.resources.account_sign_out_message
 import augmy.composeapp.generated.resources.button_block
 import augmy.composeapp.generated.resources.button_confirm
 import augmy.composeapp.generated.resources.button_dismiss
+import augmy.composeapp.generated.resources.button_power
+import augmy.composeapp.generated.resources.button_remove
 import augmy.composeapp.generated.resources.button_verify
 import augmy.composeapp.generated.resources.button_yes
 import augmy.composeapp.generated.resources.conversation_action_invite_message
 import augmy.composeapp.generated.resources.conversation_action_invite_title
 import augmy.composeapp.generated.resources.conversation_action_leave
 import augmy.composeapp.generated.resources.conversation_action_leave_hint
+import augmy.composeapp.generated.resources.conversation_ban_message
+import augmy.composeapp.generated.resources.conversation_ban_title
 import augmy.composeapp.generated.resources.conversation_kick_message
 import augmy.composeapp.generated.resources.conversation_kick_title
 import augmy.composeapp.generated.resources.conversation_left_message
@@ -106,6 +112,7 @@ import base.navigation.NavIconType
 import base.navigation.NavigationArguments
 import base.navigation.NavigationNode
 import base.utils.getOrNull
+import base.utils.orDefault
 import base.utils.orZero
 import components.AvatarImage
 import components.network.NetworkItemRow
@@ -127,6 +134,8 @@ import net.folivo.trixnity.clientserverapi.model.rooms.GetPublicRoomsResponse
 import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
 import net.folivo.trixnity.core.model.events.m.room.NameEventContent
+import net.folivo.trixnity.core.model.events.m.room.PowerLevelsEventContent
+import net.folivo.trixnity.core.model.events.m.room.PowerLevelsEventContent.Companion.INVITE_DEFAULT
 import net.folivo.trixnity.core.model.events.m.room.get
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
@@ -202,7 +211,7 @@ fun ConversationSettingsScreen(conversationId: String?) {
             conversationId = conversationId,
             model = model,
             additionalContent = {
-                if (conversation.value?.data?.summary?.isDirect == false) {
+                if (conversation.value?.isDirect == false) {
                     item {
                         val ongoingChange = model.ongoingChange.collectAsState()
                         val isLoading = ongoingChange.value is ConversationSettingsModel.ChangeType.Leave
@@ -255,7 +264,7 @@ fun ConversationSettingsContent(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    val myPowerLevel = model.myPowerLevel.collectAsState(initial = null)
+    val myPowerLevel = model.myPowerLevel.collectAsState(initial = 0)
     val detail = model.conversation.collectAsState()
     val ongoingChange = model.ongoingChange.collectAsState()
     val selectedUserToInvite = model.selectedInvitedUser.collectAsState()
@@ -270,7 +279,9 @@ fun ConversationSettingsContent(
     val showPictureChangeDialog = remember { mutableStateOf(false) }
     val selectedMemberId = remember { mutableStateOf<String?>(null) }
     val selectedMemberDetail = remember { mutableStateOf<ConversationRoomMember?>(null) }
-    val kickMemberUserId = remember { mutableStateOf<ConversationRoomMember?>(null) }
+    val kickMember = remember { mutableStateOf<ConversationRoomMember?>(null) }
+    val banMember = remember { mutableStateOf<ConversationRoomMember?>(null) }
+    val powerMember = remember { mutableStateOf<ConversationRoomMember?>(null) }
     val enableMembersPaging = rememberSaveable { mutableStateOf(false) }
     val showScrollUp = remember { mutableStateOf(listState.firstVisibleItemIndex > 30) }
 
@@ -310,19 +321,56 @@ fun ConversationSettingsContent(
     }
 
 
-    kickMemberUserId.value?.let { member ->
+    kickMember.value?.let { member ->
         AlertDialog(
             title = stringResource(Res.string.conversation_kick_title),
             message = AnnotatedString(
-                stringResource(Res.string.conversation_kick_message, member.displayName ?: "a member")
+                stringResource(
+                    Res.string.conversation_kick_message,
+                    member.displayName ?: member.userId
+                )
             ),
             icon = Icons.Outlined.PersonRemove,
             confirmButtonState = ButtonState(text = stringResource(Res.string.button_confirm)) {
-                model.kickMember(member.userId)
+                model.kickMember(member) {
+                    members.refresh()
+                }
             },
             dismissButtonState = ButtonState(text = stringResource(Res.string.button_dismiss)),
             onDismissRequest = {
-                kickMemberUserId.value = null
+                kickMember.value = null
+            }
+        )
+    }
+
+    banMember.value?.let { member ->
+        AlertDialog(
+            title = stringResource(Res.string.conversation_ban_title),
+            message = AnnotatedString(
+                stringResource(
+                    Res.string.conversation_ban_message,
+                    member.displayName ?: member.userId
+                )
+            ),
+            icon = Icons.Outlined.Block,
+            confirmButtonState = ButtonState(text = stringResource(Res.string.button_confirm)) {
+                model.banMember(member) {
+                    members.refresh()
+                }
+            },
+            dismissButtonState = ButtonState(text = stringResource(Res.string.button_dismiss)),
+            onDismissRequest = {
+                banMember.value = null
+            }
+        )
+    }
+
+    powerMember.value?.let { member ->
+        ChangePowerDialog(
+            member = member,
+            model = model,
+            onDismissRequest = {
+                powerMember.value = null
             }
         )
     }
@@ -343,7 +391,7 @@ fun ConversationSettingsContent(
             confirmButtonState = ButtonState(
                 text = stringResource(Res.string.button_confirm),
                 onClick = {
-                    model.inviteMembers(user.userId ?: "")
+                    model.inviteMembers(user)
                 }
             ),
             additionalContent = {
@@ -413,7 +461,9 @@ fun ConversationSettingsContent(
                     )
                     AnimatedVisibility(
                         modifier = Modifier.align(Alignment.BottomEnd),
-                        visible = myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.events?.get<AvatarEventContent>().orZero()
+                        visible = detail.value?.isDirect == false
+                                && myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.events?.get<AvatarEventContent>()
+                            .orDefault(detail.value?.data?.summary?.powerLevels?.stateDefault.orZero())
                     ) {
                         MinimalisticFilledIcon(
                             modifier = Modifier.padding(bottom = 8.dp, end = 8.dp),
@@ -435,7 +485,7 @@ fun ConversationSettingsContent(
             item {
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            if(detail.value?.data?.summary?.isDirect == false || publicRoom != null) {
+            if(detail.value?.isDirect == false || publicRoom != null) {
                 item("membersHeader") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -448,7 +498,7 @@ fun ConversationSettingsContent(
                                 color = LocalTheme.current.colors.disabled
                             )
                         )
-                        if (inviteEnabled && myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.kick.orZero()) {
+                        if (inviteEnabled && myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.invite.orDefault(INVITE_DEFAULT)) {
                             MinimalisticIcon(
                                 imageVector = Icons.Outlined.PersonAddAlt,
                                 contentDescription = stringResource(Res.string.accessibility_add_new_member),
@@ -456,6 +506,7 @@ fun ConversationSettingsContent(
                                     scope.launch {
                                         navController?.navigate(
                                             NavigationNode.SearchUser(
+                                                isInvitation = true,
                                                 awaitingResult = true,
                                                 excludeUsers = withContext(Dispatchers.Default) {
                                                     members.itemSnapshotList.joinToString(",") { it?.userId ?: "" }
@@ -554,26 +605,49 @@ fun ConversationSettingsContent(
                                     modifier = Modifier.padding(bottom = 4.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    // TODO assing new power level dialog
+                                    val canKick = myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.kick.orDefault(50)
+                                    val hasOverpower = myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.events?.get<PowerLevelsEventContent>().orZero()
+                                            && myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.users?.get(UserId(member?.userId ?: "")).orZero()
+                                    val canBan = myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.ban.orDefault(50)
 
                                     Spacer(Modifier.width(6.dp))
-                                    if (myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.kick.orZero()) {
+                                    if (hasOverpower) {
                                         ScalingIcon(
-                                            color = SharedColors.RED_ERROR.copy(.6f),
-                                            imageVector = Icons.Outlined.FaceRetouchingOff,
-                                            contentDescription = stringResource(Res.string.button_block),
+                                            color = SharedColors.YELLOW.copy(.6f),
+                                            imageVector = Icons.Outlined.Moving,
+                                            contentDescription = stringResource(Res.string.button_power),
                                             onClick = {
-                                                kickMemberUserId.value = member
+                                                powerMember.value = member
                                             }
                                         )
                                     }
                                     AnimatedVisibility(ongoingChange.value !is ConversationSettingsModel.ChangeType.VerifyMember) {
                                         ScalingIcon(
-                                            color = SharedColors.YELLOW.copy(.6f),
+                                            color = LocalTheme.current.colors.secondary,
                                             imageVector = Icons.Outlined.SensorOccupied,
                                             contentDescription = stringResource(Res.string.button_verify),
                                             onClick = {
                                                 model.verifyUser(userId = member?.userId)
+                                            }
+                                        )
+                                    }
+                                    if (canKick) {
+                                        ScalingIcon(
+                                            color = SharedColors.RED_ERROR.copy(.6f),
+                                            imageVector = Icons.Outlined.FaceRetouchingOff,
+                                            contentDescription = stringResource(Res.string.button_remove),
+                                            onClick = {
+                                                kickMember.value = member
+                                            }
+                                        )
+                                    }
+                                    if (canBan) {
+                                        ScalingIcon(
+                                            color = SharedColors.RED_ERROR_DARK.copy(.6f),
+                                            imageVector = Icons.Outlined.Block,
+                                            contentDescription = stringResource(Res.string.button_block),
+                                            onClick = {
+                                                banMember.value = member
                                             }
                                         )
                                     }
@@ -701,7 +775,9 @@ private fun RoomNameContent(
                         text = roomName ?: "",
                         style = LocalTheme.current.styles.subheading
                     )
-                    if (myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.events?.get<NameEventContent>().orZero()) {
+                    if (detail.value?.isDirect == false
+                        && myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.events?.get<NameEventContent>().orZero()
+                    ) {
                         MinimalisticComponentIcon(
                             imageVector = Icons.Outlined.Edit,
                             contentDescription = stringResource(Res.string.accessibility_change_username),

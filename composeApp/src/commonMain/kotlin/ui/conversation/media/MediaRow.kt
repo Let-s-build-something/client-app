@@ -41,7 +41,7 @@ import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.utils.DateUtils.formatAsRelative
 import base.navigation.NavigationNode
 import base.theme.Colors
-import base.utils.Matrix.Media.MATRIX_REPOSITORY_PREFIX
+import base.utils.MatrixUtils.Media.MATRIX_REPOSITORY_PREFIX
 import base.utils.MediaType
 import data.io.social.network.conversation.message.FullConversationMessage
 import data.io.social.network.conversation.message.MediaIO

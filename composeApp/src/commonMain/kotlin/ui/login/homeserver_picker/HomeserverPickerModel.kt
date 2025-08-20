@@ -2,6 +2,9 @@ package ui.login.homeserver_picker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import base.utils.MatrixUtils.AUGMY_HOMESERVER_IDENTIFIER
+import base.utils.MatrixUtils.AUGMY_HOME_SERVER_ADDRESS
+import base.utils.MatrixUtils.MATRIX_HOME_SERVER
 import data.io.DELAY_BETWEEN_REQUESTS_SHORT
 import data.io.app.SettingsKeys.KEY_HOMESERVERS
 import data.io.base.BaseResponse

@@ -33,6 +33,10 @@ inline fun <reified T : Number> T?.orZero(): T {
     }
 }
 
+inline fun <reified T : Number> T?.orDefault(value: T): T {
+    return this ?: value
+}
+
 /** Returns the extension of an url */
 fun getUrlExtension(url: String): String = (url.toUri().path ?: url).substringAfterLast(".").lowercase()
 

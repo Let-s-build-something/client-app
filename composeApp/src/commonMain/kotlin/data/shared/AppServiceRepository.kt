@@ -1,5 +1,6 @@
 package data.shared
 
+import base.utils.MatrixUtils.AUGMY_INTERNAL_ROOM_ID
 import data.io.base.BaseResponse
 import data.io.user.RequestUpdateFcmToken
 import database.dao.ConversationRoomDao
@@ -10,7 +11,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import org.koin.mp.KoinPlatform
-import ui.login.homeserver_picker.AUGMY_INTERNAL_ROOM_ID
 import ui.login.safeRequest
 
 /** Class for calling APIs and remote work in general */

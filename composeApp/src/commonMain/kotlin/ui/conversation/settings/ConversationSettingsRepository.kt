@@ -67,11 +67,24 @@ class ConversationSettingsRepository(
         )
     }
 
+    suspend fun removeUser(
+        userId: String,
+        ownerPublicId: String?
+    ) = withContext(Dispatchers.IO) {
+        networkItemDao.remove(userId = userId, ownerPublicId = ownerPublicId)
+    }
+
     suspend fun removeRoom(
         conversationId: String,
         ownerPublicId: String?
     ) = withContext(Dispatchers.IO) {
         conversationRoomDao.remove(id = conversationId, ownerPublicId = ownerPublicId)
+    }
+
+    suspend fun updateRoomMember(
+        member: ConversationRoomMember
+    ) = withContext(Dispatchers.IO) {
+        roomMemberDao.insertReplace(member)
     }
 
     suspend fun getPendingVerifications(
