@@ -121,6 +121,7 @@ import base.utils.LinkUtils
 import base.utils.MediaType
 import base.utils.getUrlExtension
 import base.utils.maxMultiLineHeight
+import base.utils.orZero
 import components.AvatarImage
 import data.io.base.BaseResponse
 import data.io.social.network.conversation.giphy.GifAsset
@@ -181,7 +182,7 @@ internal fun BoxScope.SendMessagePanel(
     val messageState = remember(savedMessage.value) {
         TextFieldState(
             initialText = savedMessage.value ?: "",
-            initialSelection = TextRange(savedMessage.value?.length ?: 0)
+            initialSelection = TextRange(savedMessage.value?.length.orZero())
         )
     }
     val timingSensor = model.timingSensor.collectAsState()
@@ -235,10 +236,10 @@ internal fun BoxScope.SendMessagePanel(
                     index = 0,
                     files.filter { newFile ->
                         mediaAttached.none { it.name == newFile.name }
-                                && newFile.size() < (repositoryConfig.value?.maxUploadSize ?: 0)
+                                && newFile.size() < (repositoryConfig.value?.maxUploadSize.orZero())
                     }
                 )
-                if(files.any { it.size() > (repositoryConfig.value?.maxUploadSize ?: 0) }) {
+                if(files.any { it.size() > (repositoryConfig.value?.maxUploadSize.orZero()) }) {
                     snackbarHost?.showSnackbar(
                         CustomSnackbarVisuals(
                             message = getString(
@@ -263,10 +264,10 @@ internal fun BoxScope.SendMessagePanel(
                     index = 0,
                     files.filter { newFile ->
                         mediaAttached.none { it.name == newFile.name }
-                                && newFile.size() < (repositoryConfig.value?.maxUploadSize ?: 0)
+                                && newFile.size() < (repositoryConfig.value?.maxUploadSize.orZero())
                     }
                 )
-                if(files.any { it.size() < (repositoryConfig.value?.maxUploadSize ?: 0) }) {
+                if(files.any { it.size() < (repositoryConfig.value?.maxUploadSize.orZero()) }) {
                     snackbarHost?.showSnackbar(
                         getString(
                             Res.string.file_too_large,

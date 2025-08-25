@@ -2,11 +2,13 @@ package ui.login
 
 import androidx.lifecycle.viewModelScope
 import base.navigation.NavigationNode
-import base.utils.Matrix
-import base.utils.Matrix.ErrorCode.USER_IN_USE
-import base.utils.Matrix.LOGIN_EMAIL_IDENTITY
+import base.utils.MatrixUtils
+import base.utils.MatrixUtils.AUGMY_HOME_SERVER_ADDRESS
+import base.utils.MatrixUtils.ErrorCode.USER_IN_USE
+import base.utils.MatrixUtils.LOGIN_EMAIL_IDENTITY
 import base.utils.deeplinkHost
 import base.utils.openLink
+import base.utils.orZero
 import coil3.toUri
 import data.io.app.ClientStatus
 import data.io.app.SecureSettingsKeys
@@ -21,6 +23,7 @@ import data.shared.SharedModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -33,7 +36,6 @@ import kotlinx.serialization.json.Json
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
-import ui.login.homeserver_picker.AUGMY_HOME_SERVER_ADDRESS
 import utils.SharedLogger
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -93,7 +95,7 @@ class LoginModel(
 
     val ssoFlow = dataManager.loginHomeserverResponse.mapLatest { res ->
         res?.plan?.flows?.find {
-            it.type == Matrix.LOGIN_SSO || it.type == Matrix.LOGIN_AUGMY_SSO
+            it.type == MatrixUtils.LOGIN_SSO || it.type == MatrixUtils.LOGIN_AUGMY_SSO
         }
     }
 
@@ -240,18 +242,19 @@ class LoginModel(
         agreements: List<String>? = null
     ) {
         viewModelScope.launch(Dispatchers.Default) {
+            _isLoading.value = true
             val recaptcha = if(recaptchaJson != null) {
                 KoinPlatform.getKoin().get<Json>().decodeFromString<RecaptchaParams>(
                     recaptchaJson
                 ).token
             }else _matrixProgress.value?.recaptcha
             val userAccepts = agreements ?: _matrixProgress.value?.agreements
-            val lastIndex = matrixProgress.value?.response?.flows?.firstOrNull()?.stages?.lastIndex ?: 0
+            val lastIndex = matrixProgress.value?.response?.flows?.firstOrNull()?.stages?.lastIndex.orZero()
 
             _matrixProgress.value = _matrixProgress.value?.copy(
                 recaptcha = recaptcha,
                 agreements = userAccepts,
-                index = _matrixProgress.value?.index?.plus(1)?.coerceAtMost(lastIndex) ?: 0
+                index = _matrixProgress.value?.index?.plus(1)?.coerceAtMost(lastIndex).orZero()
             )?.also { progress ->
                 repository.registerWithUsername(
                     address = homeserverResponseAddress,
@@ -280,6 +283,8 @@ class LoginModel(
                     }
                 }
             }
+            delay(800)
+            _isLoading.value = false
         }
     }
 
@@ -300,14 +305,14 @@ class LoginModel(
 
                 // we check for single EP registration first
                 val flow = dataManager.registrationHomeserverResponse.value?.plan?.flows?.firstOrNull()
-                if(flow?.stages?.size == 1 && flow.stages.firstOrNull() == Matrix.LOGIN_DUMMY) {
+                if(flow?.stages?.size == 1 && flow.stages.firstOrNull() == MatrixUtils.LOGIN_DUMMY) {
                     repository.registerWithUsername(
                         address = homeserverResponseAddress,
                         username = username,
                         password = password,
                         authenticationData = AuthenticationData(
                             session = session,
-                            type = Matrix.LOGIN_DUMMY
+                            type = MatrixUtils.LOGIN_DUMMY
                         ),
                         deviceId = authService.getDeviceId()
                     )?.also {
@@ -325,11 +330,11 @@ class LoginModel(
                     }else null
 
                     when(check?.error?.code) {
-                        Matrix.ErrorCode.CREDENTIALS_IN_USE -> {
+                        MatrixUtils.ErrorCode.CREDENTIALS_IN_USE -> {
                             _isLoading.value = false
                             _loginResult.emit(LoginResultType.EMAIL_EXISTS)
                         }
-                        Matrix.ErrorCode.CREDENTIALS_DENIED, Matrix.ErrorCode.FORBIDDEN, Matrix.ErrorCode.UNKNOWN -> {
+                        MatrixUtils.ErrorCode.CREDENTIALS_DENIED, MatrixUtils.ErrorCode.FORBIDDEN, MatrixUtils.ErrorCode.UNKNOWN -> {
                             _isLoading.value = false
                             _loginResult.emit(LoginResultType.FAILURE)
                         }
@@ -371,8 +376,8 @@ class LoginModel(
                         password = password,
                         response = res,
                         identifier = MatrixIdentifierData(
-                            type = if(isUser) Matrix.Id.USER else Matrix.Id.THIRD_PARTY,
-                            medium = Matrix.Medium.EMAIL.takeIf { !isUser },
+                            type = if(isUser) MatrixUtils.Id.USER else MatrixUtils.Id.THIRD_PARTY,
+                            medium = MatrixUtils.Medium.EMAIL.takeIf { !isUser },
                             address = email.takeIf { !isUser },
                             user = username.takeIf { isUser }
                         )
@@ -401,15 +406,15 @@ class LoginModel(
             authService.loginWithIdentifier(
                 homeserver = homeserverResponseAddress,
                 identifier = MatrixIdentifierData(
-                    type = if(isUser) Matrix.Id.USER else Matrix.Id.THIRD_PARTY,
-                    medium = Matrix.Medium.EMAIL.takeIf { !isUser },
+                    type = if(isUser) MatrixUtils.Id.USER else MatrixUtils.Id.THIRD_PARTY,
+                    medium = MatrixUtils.Medium.EMAIL.takeIf { !isUser },
                     address = email.takeIf { !isUser },
                     user = username.takeIf { isUser }
                 ),
                 password = password,
                 token = null
             ).let {
-                if(it.error?.code == Matrix.ErrorCode.FORBIDDEN) {
+                if(it.error?.code == MatrixUtils.ErrorCode.FORBIDDEN) {
                     _loginResult.emit(LoginResultType.INVALID_CREDENTIAL)
                     return
                 }else if(it.error != null) {
@@ -471,7 +476,7 @@ class LoginModel(
                             _matrixAuthResponse.value = it.success?.data
                             initUserObject()
                         }
-                        it.error?.code == Matrix.ErrorCode.FORBIDDEN -> _loginResult.emit(LoginResultType.INVALID_CREDENTIAL)
+                        it.error?.code == MatrixUtils.ErrorCode.FORBIDDEN -> _loginResult.emit(LoginResultType.INVALID_CREDENTIAL)
                         else -> _loginResult.emit(LoginResultType.FAILURE)
                     }
                     if (!it.isSuccess) {

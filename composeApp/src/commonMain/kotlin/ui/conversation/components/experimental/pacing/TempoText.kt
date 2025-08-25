@@ -14,6 +14,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
+import base.utils.orZero
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
@@ -49,7 +50,7 @@ fun buildTempoString(
                 val fourthQuartile = timings[timings.size / 4]
                 val aboveMedianList = mutableSetOf<Int>()
                 timings.forEachIndexed { index, timing ->
-                    if(index < (graphemes.value?.count() ?: 0)
+                    if(index < graphemes.value?.count().orZero()
                         && timing > FULL_STOP_LENGTH / 2
                         && timing > fourthQuartile
                     ) {
@@ -57,11 +58,11 @@ fun buildTempoString(
                             graphemes.value?.take(
                                 // we skip possible space before the actual emphasis
                                 if(graphemes.value?.elementAt(index)?.value.isNullOrBlank()
-                                    && (timings.getOrNull(index + 1) ?: 0L) < FULL_STOP_LENGTH
+                                    && timings.getOrNull(index + 1).orZero() < FULL_STOP_LENGTH
                                 ) {
                                     index + 1
                                 } else index
-                            )?.sumOf { it.value.length } ?: 0
+                            )?.sumOf { it.value.length }.orZero()
                         )
                     }
                 }
@@ -110,7 +111,7 @@ fun buildTempoString(
                         currentPosition = if(timings.getOrNull(index) == 0L) {
                             var final = index
                             for (i in index .. timings.size) {
-                                if((timings.getOrNull(i) ?: 0L) == 0L) final++ else break
+                                if(timings.getOrNull(i).orZero() == 0L) final++ else break
                             }
                             final
                         }else index

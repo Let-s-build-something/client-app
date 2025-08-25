@@ -3,6 +3,7 @@ package database
 import androidx.room.migration.Migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
+import database.AppRoomDatabase.Companion.TABLE_CONVERSATION_ROLE
 import database.AppRoomDatabase.Companion.TABLE_CONVERSATION_ROOM
 
 object DatabaseMigrations {
@@ -63,6 +64,27 @@ object DatabaseMigrations {
             connection.execSQL("CREATE INDEX index_room_conversation_room_table_proximity ON room_conversation_room_table(proximity)")
             connection.execSQL("CREATE INDEX index_room_conversation_room_table_owner_public_id_type ON room_conversation_room_table(owner_public_id, type)")
             connection.execSQL("CREATE INDEX index_room_conversation_room_table_owner_public_id_id ON room_conversation_room_table(owner_public_id, id)")
+        }
+    }
+    val MIGRATION_84_85 = object : Migration(84, 85) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                """
+        CREATE TABLE IF NOT EXISTS $TABLE_CONVERSATION_ROLE (
+            power INTEGER NOT NULL,
+            label TEXT NOT NULL,
+            room_id TEXT NOT NULL,
+            uid TEXT NOT NULL PRIMARY KEY
+        )
+        """.trimIndent()
+            )
+
+            connection.execSQL(
+                """
+     CREATE INDEX IF NOT EXISTS index_conversation_role_room_id
+        ON $TABLE_CONVERSATION_ROLE(room_id)
+        """.trimIndent()
+            )
         }
     }
 

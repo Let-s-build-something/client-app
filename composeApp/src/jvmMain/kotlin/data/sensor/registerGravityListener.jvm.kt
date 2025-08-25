@@ -1,6 +1,6 @@
 package data.sensor
 
-import augmy.interactive.shared.utils.DateUtils
+import base.utils.orZero
 import korlibs.math.toInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -27,7 +27,8 @@ actual suspend fun getAllSensors(): List<SensorEventListener>? {
             createRepeatedEventListener(name = "Battery charging bool state") {
                 SensorEvent(
                     values = floatArrayOf(
-                        hardware.powerSources.firstOrNull()?.isCharging?.toInt()?.toFloat() ?: 0f)
+                        hardware.powerSources.firstOrNull()?.isCharging?.toInt()?.toFloat().orZero()
+                    )
                 )
             },
             createRepeatedEventListener(name = "Visible GUI windows") {

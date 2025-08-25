@@ -56,7 +56,7 @@ interface RoomMemberDao {
         SELECT * FROM ${AppRoomDatabase.TABLE_ROOM_MEMBER}
             WHERE room_id = :roomId
             AND userId != :ignoreUserId
-            AND membership = 'join'
+            AND membership = 'JOIN'
             ORDER BY proximity DESC, timestamp ASC
             LIMIT :limit
             OFFSET :offset
@@ -72,7 +72,7 @@ interface RoomMemberDao {
         """
          SELECT COUNT(*) FROM ${AppRoomDatabase.TABLE_ROOM_MEMBER}   
          WHERE room_id = :roomId
-         AND membership = 'join'
+         AND membership = 'JOIN'
         """
     )
     suspend fun getCount(roomId: String?): Int

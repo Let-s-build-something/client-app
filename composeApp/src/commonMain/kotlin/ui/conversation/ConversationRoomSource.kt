@@ -3,6 +3,7 @@ package ui.conversation
 import androidx.paging.PagingSource
 import androidx.paging.PagingSource.LoadResult.Page.Companion.COUNT_UNDEFINED
 import androidx.paging.PagingState
+import base.utils.orZero
 import coil3.network.HttpException
 import data.io.social.network.conversation.message.FullConversationMessage
 import kotlinx.io.IOException
@@ -28,7 +29,7 @@ class ConversationRoomSource(
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, FullConversationMessage> {
         return try {
-            val paramsKey = params.key ?: 0
+            val paramsKey = params.key.orZero()
             val response = getMessages(paramsKey)
 
             if(response != null) {

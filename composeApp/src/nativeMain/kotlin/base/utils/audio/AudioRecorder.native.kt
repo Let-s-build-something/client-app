@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import base.utils.orZero
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.allocPointerTo
@@ -16,8 +17,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.AVFAudio.AVAudioEngine
-import platform.AVFAudio.AVAudioEnvironmentReverbParameters
-import platform.AVFAudio.AVAudioEnvironmentReverbParametersMeta
 import platform.AVFAudio.AVAudioFormat
 import platform.AVFAudio.AVAudioMixerNode
 import platform.AVFAudio.AVAudioNode
@@ -26,7 +25,6 @@ import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryOptionAllowBluetooth
 import platform.AVFAudio.AVAudioSessionCategoryOptionMixWithOthers
 import platform.AVFAudio.AVAudioSessionCategoryPlayAndRecord
-import platform.AVFAudio.AVAudioSessionModeMeasurement
 import platform.AVFAudio.AVAudioSessionModeSpokenAudio
 import platform.AVFAudio.availableInputs
 import platform.AVFAudio.setActive
@@ -99,12 +97,12 @@ actual fun rememberAudioRecorder(
                         ) { tapBuffer, _ ->
                             val audioBuffer = tapBuffer?.audioBufferList?.get(0)?.mBuffers?.get(0)
                             val data = audioBuffer?.mData
-                            val size = audioBuffer?.mDataByteSize?.toInt() ?: 0
+                            val size = audioBuffer?.mDataByteSize?.toInt().orZero()
 
                             byteOutputStream?.appendBytes(data, size.toULong())
                             barByteOutputStream?.appendBytes(data, size.toULong())
 
-                            if((barByteOutputStream?.length?.toInt() ?: 0) >= bytesPerBar) {
+                            if(barByteOutputStream?.length?.toInt().orZero() >= bytesPerBar) {
                                 val byteArray = barByteOutputStream?.byteArray
                                 coroutineScope.launch {
                                     processChunk(byteArray = byteArray)

@@ -25,6 +25,7 @@ import augmy.interactive.com.BuildKonfig
 import augmy.interactive.shared.ui.base.BackPressDispatcher
 import augmy.interactive.shared.ui.base.LocalBackPressDispatcher
 import augmy.interactive.shared.ui.base.LocalScreenSize
+import base.utils.orZero
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.FirebasePlatform
@@ -215,7 +216,7 @@ fun main(args: Array<String>) = application {
                         GraphicsEnvironment.getLocalGraphicsEnvironment()
                             .defaultScreenDevice
                             .defaultConfiguration
-                    )?.bottom ?: 0
+                    )?.bottom.orZero()
                 ))?.toDp() ?: 600.dp
             },
             position = WindowPosition.Aligned(Alignment.TopStart)

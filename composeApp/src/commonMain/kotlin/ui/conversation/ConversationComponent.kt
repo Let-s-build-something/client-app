@@ -75,6 +75,7 @@ import augmy.interactive.shared.utils.persistedLazyListState
 import base.navigation.NavigationNode
 import base.utils.getOrNull
 import base.utils.openLink
+import base.utils.orZero
 import components.EmptyLayout
 import data.io.base.BaseResponse
 import data.io.social.network.conversation.message.FullConversationMessage
@@ -423,7 +424,7 @@ fun ConversationComponent(
                     count = (if(messages.itemCount == 0 && isLoadingInitialPage) shimmerItemCount else messages.itemCount).takeIf {
                         uiMode.value == ConversationModel.UiMode.Idle
                                 || uiMode.value == ConversationModel.UiMode.Preview
-                    } ?: 0,
+                    }.orZero(),
                     key = { index -> messages.getOrNull(index)?.id ?: index }
                 ) { index ->
                     val data = messages.getOrNull(index)

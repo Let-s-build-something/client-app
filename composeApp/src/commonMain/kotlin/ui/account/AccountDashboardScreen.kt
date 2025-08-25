@@ -76,6 +76,7 @@ import augmy.interactive.shared.ui.components.rememberMultiChoiceState
 import augmy.interactive.shared.ui.theme.LocalTheme
 import base.BrandBaseScreen
 import base.navigation.NavigationNode
+import base.utils.orZero
 import base.utils.shareLink
 import base.utils.withPlainText
 import components.AvatarImage
@@ -249,7 +250,7 @@ private fun SettingsSection(viewModel: AccountDashboardModel) {
                 viewModel.requestVisibilityChange(
                     if(v?.ordinal == 2) {
                         UserVisibility.entries.first()
-                    }else UserVisibility.entries[(v?.ordinal ?: 0) + 1]
+                    }else UserVisibility.entries[v?.ordinal.orZero() + 1]
                 )
             }
         }

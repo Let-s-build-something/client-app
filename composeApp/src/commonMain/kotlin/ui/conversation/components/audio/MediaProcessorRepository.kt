@@ -1,7 +1,7 @@
 package ui.conversation.components.audio
 
 import base.utils.LinkUtils.urlRegex
-import base.utils.Matrix.Media.MATRIX_REPOSITORY_PREFIX
+import base.utils.MatrixUtils.Media.MATRIX_REPOSITORY_PREFIX
 import base.utils.getExtensionFromMimeType
 import base.utils.toSha256
 import data.io.social.network.conversation.message.MediaIO

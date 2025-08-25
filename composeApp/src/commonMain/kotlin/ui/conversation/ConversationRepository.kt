@@ -5,6 +5,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingSource
 import augmy.interactive.shared.utils.DateUtils
 import base.utils.MediaType
+import base.utils.orZero
 import base.utils.toSha256
 import data.io.base.BaseResponse
 import data.io.matrix.media.FileList
@@ -362,7 +363,7 @@ open class ConversationRepository(
                     )
                 }
             }
-            (media?.size ?: 0) > 1 -> FileList(
+            media?.size.orZero() > 1 -> FileList(
                 body = content,
                 urls = media?.mapNotNull { it.url },
                 fileName = media?.firstOrNull()?.name,

@@ -11,6 +11,7 @@ import data.io.experiment.ExperimentIO
 import data.io.experiment.ExperimentSet
 import data.io.matrix.room.ConversationRoomIO
 import data.io.matrix.room.event.ConversationRoomMember
+import data.io.social.network.conversation.ConversationRole
 import data.io.social.network.conversation.EmojiSelection
 import data.io.social.network.conversation.message.ConversationMessageIO
 import data.io.social.network.conversation.message.MediaIO
@@ -18,6 +19,7 @@ import data.io.social.network.conversation.message.MessageReactionIO
 import data.io.user.NetworkItemIO
 import data.io.user.PresenceData
 import database.dao.ConversationMessageDao
+import database.dao.ConversationRoleDao
 import database.dao.ConversationRoomDao
 import database.dao.EmojiSelectionDao
 import database.dao.GravityDao
@@ -46,10 +48,11 @@ import ui.conversation.components.experimental.gravity.GravityValue
         MessageReactionIO::class,
         MediaIO::class,
         ExperimentIO::class,
+        ConversationRole::class,
         ExperimentSet::class,
         ConversationRoomIO::class
     ],
-    version = 84,
+    version = 85,
     exportSchema = true
 )
 @ConstructedBy(AppDatabaseConstructor::class)
@@ -70,6 +73,7 @@ abstract class AppRoomDatabase: RoomDatabase() {
     abstract fun gravityDao(): GravityDao
     abstract fun experimentDao(): ExperimentDao
     abstract fun experimentSetDao(): ExperimentSetDao
+    abstract fun conversationRoleDao(): ConversationRoleDao
 
     companion object {
         /** File name of the main database */
@@ -81,6 +85,7 @@ abstract class AppRoomDatabase: RoomDatabase() {
         /** Identification of table for [ConversationRoomIO] */
         const val TABLE_CONVERSATION_ROOM = "room_conversation_room_table"
         const val TABLE_MEDIA = "table_media"
+        const val TABLE_CONVERSATION_ROLE = "table_conversation_role"
 
         /** Identification of table for [ConversationMessageIO] */
         const val TABLE_CONVERSATION_MESSAGE = "room_conversation_message_table"

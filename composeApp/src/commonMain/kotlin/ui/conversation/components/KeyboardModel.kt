@@ -2,6 +2,7 @@ package ui.conversation.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.lifecycle.viewModelScope
+import base.utils.orZero
 import data.io.app.SettingsKeys
 import data.io.social.network.conversation.EmojiData
 import data.shared.SharedModel
@@ -72,7 +73,7 @@ open class KeyboardModel(
         }
         viewModelScope.launch(Dispatchers.IO) {
             showEmojiPreferenceHint = settings.getBooleanOrNull(SettingsKeys.KEY_SHOW_EMOJI_PREFERENCE_HINT) ?: true
-            keyboardHeight.value = settings.getIntOrNull(SettingsKeys.KEY_KEYBOARD_HEIGHT) ?: 0
+            keyboardHeight.value = settings.getIntOrNull(SettingsKeys.KEY_KEYBOARD_HEIGHT).orZero()
         }
     }
 

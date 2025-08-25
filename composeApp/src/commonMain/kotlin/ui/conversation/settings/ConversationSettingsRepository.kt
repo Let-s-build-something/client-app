@@ -8,11 +8,13 @@ import data.io.base.paging.MatrixPagingMetaIO
 import data.io.matrix.room.ConversationRoomIO
 import data.io.matrix.room.FullConversationRoom
 import data.io.matrix.room.event.ConversationRoomMember
+import data.io.social.network.conversation.ConversationRole
 import data.io.social.network.conversation.message.ConversationMessagesResponse
 import data.io.user.NetworkItemIO
 import data.shared.sync.DataSyncHandler
 import data.shared.sync.MessageProcessor
 import database.dao.ConversationMessageDao
+import database.dao.ConversationRoleDao
 import database.dao.ConversationRoomDao
 import database.dao.MatrixPagingMetaDao
 import database.dao.NetworkItemDao
@@ -40,6 +42,7 @@ class ConversationSettingsRepository(
     private val roomMemberDao: RoomMemberDao,
     private val networkItemDao: NetworkItemDao,
     private val conversationRoomDao: ConversationRoomDao,
+    private val conversationRoleDao: ConversationRoleDao,
     private val conversationMessageDao: ConversationMessageDao,
     private val matrixPagingDao: MatrixPagingMetaDao,
     private val presenceEventDao: PresenceEventDao,
@@ -58,6 +61,14 @@ class ConversationSettingsRepository(
         conversationRoomDao.insert(room)
     }
 
+    suspend fun getAllRoles(roomId: String) = withContext(Dispatchers.IO) {
+        conversationRoleDao.getAll(roomId)
+    }
+
+    suspend fun insertRoles(data: List<ConversationRole>) = withContext(Dispatchers.IO) {
+        conversationRoleDao.insert(data)
+    }
+
     suspend fun getUser(
         userId: String,
         ownerPublicId: String?
@@ -67,11 +78,24 @@ class ConversationSettingsRepository(
         )
     }
 
+    suspend fun removeUser(
+        userId: String,
+        ownerPublicId: String?
+    ) = withContext(Dispatchers.IO) {
+        networkItemDao.remove(userId = userId, ownerPublicId = ownerPublicId)
+    }
+
     suspend fun removeRoom(
         conversationId: String,
         ownerPublicId: String?
     ) = withContext(Dispatchers.IO) {
         conversationRoomDao.remove(id = conversationId, ownerPublicId = ownerPublicId)
+    }
+
+    suspend fun updateRoomMember(
+        member: ConversationRoomMember
+    ) = withContext(Dispatchers.IO) {
+        roomMemberDao.insertReplace(member)
     }
 
     suspend fun getPendingVerifications(

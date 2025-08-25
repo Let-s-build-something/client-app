@@ -76,13 +76,13 @@ import augmy.interactive.shared.ui.components.OutlinedButton
 import augmy.interactive.shared.ui.components.input.CustomTextField
 import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.ui.theme.SharedColors
+import base.utils.MatrixUtils.AUGMY_HOMESERVER_IDENTIFIER
 import korlibs.io.util.substringBeforeOrNull
 import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.verification.SelfVerificationMethod
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.context.loadKoinModules
-import ui.login.homeserver_picker.AUGMY_HOMESERVER_IDENTIFIER
 
 /**
  * Bottom sheet for verifying current device

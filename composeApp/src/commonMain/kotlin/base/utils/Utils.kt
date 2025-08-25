@@ -21,6 +21,22 @@ fun tagToColor(tag: String?) = if(tag != null) Color(("ff$tag").toLong(16)) else
 /** Converts color to 6 hexadecimal numbers representing it without transparency */
 fun Color.asSimpleString() = this.value.toString(16).substring(2, 8)
 
+inline fun <reified T : Number> T?.orZero(): T {
+    return this ?: when (T::class) {
+        Int::class -> 0 as T
+        Long::class -> 0L as T
+        Double::class -> 0.0 as T
+        Float::class -> 0f as T
+        Short::class -> 0.toShort() as T
+        Byte::class -> 0.toByte() as T
+        else -> throw IllegalArgumentException("Unsupported numeric type: ${T::class}")
+    }
+}
+
+inline fun <reified T : Number> T?.orDefault(value: T): T {
+    return this ?: value
+}
+
 /** Returns the extension of an url */
 fun getUrlExtension(url: String): String = (url.toUri().path ?: url).substringAfterLast(".").lowercase()
 

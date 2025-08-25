@@ -9,6 +9,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import base.utils.orZero
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
@@ -61,12 +62,12 @@ actual fun rememberAudioRecorder(
                     val threadBuffer = ByteArray(effectiveBufferSize)
 
                     while (recordingThread != null) {
-                        val readResult = audioRecord?.read(threadBuffer, 0, threadBuffer.size) ?: 0
+                        val readResult = audioRecord?.read(threadBuffer, 0, threadBuffer.size).orZero()
 
                         if (readResult > 0) {
                             buffer?.write(threadBuffer, 0, readResult)
                             barBuffer?.write(threadBuffer, 0, readResult)
-                            if((barBuffer?.size() ?: 0) >= bytesPerBar) {
+                            if(barBuffer?.size().orZero() >= bytesPerBar) {
                                 val byteArray = barBuffer?.toByteArray()
                                 coroutineScope.launch {
                                     processChunk(byteArray = byteArray)

@@ -5,7 +5,9 @@ import augmy.composeapp.generated.resources.message_alias_change
 import augmy.composeapp.generated.resources.message_avatar_change
 import augmy.composeapp.generated.resources.message_redacted
 import augmy.composeapp.generated.resources.message_room_created
+import augmy.composeapp.generated.resources.message_room_kick
 import augmy.interactive.shared.utils.DateUtils
+import base.utils.orZero
 import data.io.base.AppPing
 import data.io.base.AppPingType
 import data.io.matrix.room.event.ConversationRoomMember
@@ -19,7 +21,6 @@ import data.shared.GeneralObserver
 import data.shared.SharedDataManager
 import data.shared.sync.EventUtils.asMessage
 import database.dao.ConversationMessageDao
-import database.dao.ConversationRoomDao
 import database.dao.MediaDao
 import database.dao.MessageReactionDao
 import database.dao.PresenceEventDao
@@ -79,7 +80,6 @@ abstract class MessageProcessor {
     private val conversationMessageDao: ConversationMessageDao by KoinPlatform.getKoin().inject()
     private val mediaDao: MediaDao by KoinPlatform.getKoin().inject()
     private val messageReactionDao: MessageReactionDao by KoinPlatform.getKoin().inject()
-    private val conversationRoomDao: ConversationRoomDao by KoinPlatform.getKoin().inject()
     private val roomMemberDao: RoomMemberDao by KoinPlatform.getKoin().inject()
     private val presenceEventDao: PresenceEventDao by KoinPlatform.getKoin().inject()
 
@@ -125,7 +125,7 @@ abstract class MessageProcessor {
             result.reactions.forEach { reaction ->
                 if (messageReactionDao.insertIgnore(reaction) == -1L) {
                     messageReactionDao.insertReplace(reaction)
-                } else (reactionObserver as GeneralObserver.ReactionsObserver).invoke(reaction)
+                } else (reactionObserver as? GeneralObserver.ReactionsObserver)?.invoke(reaction)
             }
 
             val messageObserver = sharedDataManager.observers.find { it is GeneralObserver.MessageObserver }
@@ -140,9 +140,9 @@ abstract class MessageProcessor {
                     reactions = result.reactions.filter { it.messageId == message.id },
                     media = result.media.filter { it.messageId == message.id },
                 ))?.also {
-                    messageObserver?.run {
+                    (messageObserver as? GeneralObserver.MessageObserver)?.run {
                         conversationMessageDao.get(message.id)?.let {
-                            (messageObserver as GeneralObserver.MessageObserver).invoke(it)
+                            invoke(it)
                         }
                     }
                 }
@@ -167,7 +167,7 @@ abstract class MessageProcessor {
                 val existingMember = roomMemberDao.get(member.userId)
 
                 val isNew = existingMember == null
-                val isNewer = (existingMember?.timestamp ?: 0) < (member.timestamp ?: 0)
+                val isNewer = existingMember?.timestamp.orZero() < member.timestamp.orZero()
 
                 if (isNew || isNewer) {
                     roomMemberDao.insertReplace(member)
@@ -251,8 +251,14 @@ abstract class MessageProcessor {
                             )
                         )
                     }
-                    (content.displayName ?: event.senderOrNull?.localpart)?.let { displayName ->
-                        content.avatarUrl?.let {
+                    val isKick = content.membership == Membership.LEAVE
+                            && event.stateKeyOrNull != null
+                            && event.senderOrNull?.full != event.stateKeyOrNull
+
+                    event.senderOrNull?.full?.let { senderUid ->
+                        val sender = if (content.avatarUrl == null) roomMemberDao.get(senderUid) else null
+
+                        (content.avatarUrl ?: sender?.avatarUrl)?.let {
                             event.idOrNull?.full?.let { messageId ->
                                 media.add(
                                     MediaIO(
@@ -265,10 +271,20 @@ abstract class MessageProcessor {
                             }
                         }
                         ConversationMessageIO(
-                            content = content.membership.asMessage(
-                                isSelf = event.senderOrNull?.localpart == sharedDataManager.currentUser.value?.userId,
-                                displayName = displayName
-                            ),
+                            content = if (isKick) {
+                                val target = event.stateKeyOrNull?.let { roomMemberDao.get(it) }
+
+                                getString(
+                                    Res.string.message_room_kick,
+                                    sender?.displayName ?: roomMemberDao.get(senderUid)?.displayName ?: senderUid,
+                                    target?.displayName ?: event.stateKeyOrNull ?: "a member"
+                                )
+                            } else {
+                                content.membership.asMessage(
+                                    isSelf = event.senderOrNull?.localpart == sharedDataManager.currentUser.value?.userId,
+                                    displayName = content.displayName ?: sender?.displayName ?: roomMemberDao.get(senderUid)?.displayName ?: senderUid
+                                )
+                            },
                             authorPublicId = AUTHOR_SYSTEM
                         )
                     }
@@ -347,7 +363,7 @@ abstract class MessageProcessor {
                     ConversationMessageIO(
                         content = getString(
                             Res.string.message_room_created,
-                            event.senderOrNull?.localpart ?: content.creator?.localpart ?: "",
+                            event.senderOrNull?.localpart ?: "",
                         ),
                         authorPublicId = AUTHOR_SYSTEM
                     )

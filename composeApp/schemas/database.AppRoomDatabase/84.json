@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 84,
-    "identityHash": "e0ef2f365ee596790fb5b81a5ee34f99",
+    "identityHash": "5fb098052fbfba716d4259d725324f0e",
     "entities": [
       {
         "tableName": "room_network_item_table",
@@ -688,6 +688,53 @@
         }
       },
       {
+        "tableName": "table_conversation_role",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`power` INTEGER NOT NULL, `label` TEXT NOT NULL, `room_id` TEXT NOT NULL, `uid` TEXT NOT NULL, PRIMARY KEY(`uid`))",
+        "fields": [
+          {
+            "fieldPath": "power",
+            "columnName": "power",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "roomId",
+            "columnName": "room_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "uid"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_table_conversation_role_room_id",
+            "unique": false,
+            "columnNames": [
+              "room_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_table_conversation_role_room_id` ON `${TABLE_NAME}` (`room_id`)"
+          }
+        ]
+      },
+      {
         "tableName": "experiment_set_table",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` TEXT NOT NULL, `name` TEXT NOT NULL, `values` TEXT NOT NULL, PRIMARY KEY(`uid`))",
         "fields": [
@@ -849,7 +896,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e0ef2f365ee596790fb5b81a5ee34f99')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5fb098052fbfba716d4259d725324f0e')"
     ]
   }
 }

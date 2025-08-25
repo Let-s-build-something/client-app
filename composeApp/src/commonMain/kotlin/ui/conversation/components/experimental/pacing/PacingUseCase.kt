@@ -1,5 +1,6 @@
 package ui.conversation.components.experimental.pacing
 
+import base.utils.orZero
 import data.io.app.SettingsKeys
 import data.io.app.SettingsKeys.KEY_PACING_NARROW_AVG
 import data.io.app.SettingsKeys.KEY_PACING_WIDE_AVG
@@ -180,7 +181,7 @@ class PacingUseCase {
 
     private suspend fun retrieveAvg(key: String): Pair<Int, Float>? = withContext(Dispatchers.IO) {
         settings.getStringOrNull(key)?.split(AVG_SEPARATOR)?.let {
-            (it.firstOrNull()?.toIntOrNull() ?: 0) to (it.lastOrNull()?.toFloatOrNull() ?: 0f)
+            it.firstOrNull()?.toIntOrNull().orZero() to (it.lastOrNull()?.toFloatOrNull() ?: 0f)
         }
     }
 

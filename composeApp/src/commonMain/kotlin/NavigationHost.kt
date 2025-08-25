@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import augmy.interactive.shared.ui.base.LocalNavController
 import base.navigation.NavigationNode
+import base.utils.orZero
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.core.context.loadKoinModules
 import ui.account.AccountDashboardScreen
@@ -27,6 +28,7 @@ import ui.conversation.message.MessageDetailScreen
 import ui.conversation.message.messageDetailModule
 import ui.conversation.search.ConversationSearchScreen
 import ui.conversation.settings.ConversationSettingsScreen
+import ui.conversation.settings.roles.ConversationRoleManagementScreen
 import ui.home.HomeScreen
 import ui.login.LoginScreen
 import ui.login.loginModule
@@ -93,7 +95,7 @@ fun NavigationHost(
             composable<NavigationNode.MediaDetail> { args ->
                 MediaDetailScreen(
                     idList = args.arguments?.getStringArray("idList").orEmpty(),
-                    selectedIndex = args.arguments?.getInt("selectedIndex") ?: 0,
+                    selectedIndex = args.arguments?.getInt("selectedIndex").orZero(),
                     title = args.arguments?.getString("title") ?: "",
                     subtitle = args.arguments?.getString("subtitle") ?: ""
                 )
@@ -117,10 +119,14 @@ fun NavigationHost(
             composable<NavigationNode.ConversationSettings> {
                 ConversationSettingsScreen(conversationId = it.arguments?.getString("conversationId"))
             }
+            composable<NavigationNode.ManageRoles> {
+                ConversationRoleManagementScreen(roomId = it.arguments?.getString("roomId"))
+            }
             composable<NavigationNode.SearchUser> {
                 SearchUserScreen(
                     awaitingResult = it.arguments?.getBoolean("awaitingResult"),
-                    excludeUsers = it.arguments?.getString("excludeUsers")?.split(",")
+                    excludeUsers = it.arguments?.getString("excludeUsers")?.split(","),
+                    isInvitation = it.arguments?.getBoolean("isInvitation") == true
                 )
             }
             composable<NavigationNode.SearchRoom> {

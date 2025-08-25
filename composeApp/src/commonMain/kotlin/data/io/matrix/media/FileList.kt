@@ -27,6 +27,8 @@ data class FileList(
     @SerialName("msgtype")
     val type = TYPE
 
+    override fun copyWith(relatesTo: RelatesTo?): MessageEventContent = copy(relatesTo = relatesTo)
+
     companion object {
         const val TYPE = "m.file"
     }

@@ -24,10 +24,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.zIndex
 import augmy.composeapp.generated.resources.Res
-import augmy.composeapp.generated.resources.button_block
 import augmy.composeapp.generated.resources.button_deselect
 import augmy.composeapp.generated.resources.button_invite
 import augmy.composeapp.generated.resources.button_mute
+import augmy.composeapp.generated.resources.button_remove
 import augmy.composeapp.generated.resources.button_select_all
 import augmy.composeapp.generated.resources.network_dialog_message_block
 import augmy.composeapp.generated.resources.network_dialog_message_mute
@@ -130,15 +130,8 @@ sealed class OptionsLayoutAction(
         leadingImageVector = Icons.Outlined.VoiceOverOff,
         containerColor = SharedColors.RED_ERROR
     )
-    data object Kick: OptionsLayoutAction(
-        textRes = Res.string.button_mute,
-        title = Res.string.network_dialog_title_mute,
-        message = Res.string.network_dialog_message_mute,
-        leadingImageVector = Icons.Outlined.VoiceOverOff,
-        containerColor = SharedColors.RED_ERROR
-    )
-    data object Block: OptionsLayoutAction(
-        textRes = Res.string.button_block,
+    data object Remove: OptionsLayoutAction(
+        textRes = Res.string.button_remove,
         title = Res.string.network_dialog_title_block,
         message = Res.string.network_dialog_message_block,
         leadingImageVector = Icons.Outlined.FaceRetouchingOff,

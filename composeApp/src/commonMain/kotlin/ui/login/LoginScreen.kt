@@ -82,6 +82,7 @@ import augmy.composeapp.generated.resources.dialog_terms_title
 import augmy.composeapp.generated.resources.error_general
 import augmy.composeapp.generated.resources.ic_robot
 import augmy.composeapp.generated.resources.login_agreement
+import augmy.composeapp.generated.resources.login_email_confirmation_check
 import augmy.composeapp.generated.resources.login_email_error
 import augmy.composeapp.generated.resources.login_email_verification_action
 import augmy.composeapp.generated.resources.login_email_verification_heading
@@ -135,7 +136,7 @@ import augmy.interactive.shared.ui.theme.SharedColors
 import base.BrandBaseScreen
 import base.navigation.NavIconType
 import base.navigation.NavigationNode
-import base.utils.Matrix
+import base.utils.MatrixUtils
 import base.utils.openEmail
 import base.utils.openLink
 import com.multiplatform.webview.jsbridge.IJsMessageHandler
@@ -649,8 +650,8 @@ private fun ColumnScope.LoginScreenContent(
         ) {
             ssoFlow.value?.identityProviders?.forEach { identityProvider ->
                 when(identityProvider.id) {
-                    Matrix.Brand.GOOGLE,
-                    Matrix.Brand.GOOGLE_OIDC -> {
+                    MatrixUtils.Brand.GOOGLE,
+                    MatrixUtils.Brand.GOOGLE_OIDC -> {
                         Image(
                             modifier = Modifier
                                 .height(42.dp)
@@ -661,8 +662,8 @@ private fun ColumnScope.LoginScreenContent(
                             contentDescription = null
                         )
                     }
-                    Matrix.Brand.APPLE,
-                    Matrix.Brand.APPLE_OIDC -> {
+                    MatrixUtils.Brand.APPLE,
+                    MatrixUtils.Brand.APPLE_OIDC -> {
                         Image(
                             modifier = Modifier
                                 .height(42.dp)
@@ -703,7 +704,7 @@ private fun MatrixProgressStage(
 
     Crossfade(targetState = stage) { currentStage ->
         when(currentStage) {
-            Matrix.LOGIN_RECAPTCHA -> {
+            MatrixUtils.LOGIN_RECAPTCHA -> {
                 val density = LocalDensity.current
                 val isSuccess = remember { mutableStateOf(false) }
 
@@ -773,7 +774,7 @@ private fun MatrixProgressStage(
                     }
                 )
             }
-            Matrix.LOGIN_TERMS -> {
+            MatrixUtils.LOGIN_TERMS -> {
                 val policies = progress.value?.response?.params?.terms?.policies?.values?.toList()
 
                 val isSuccess = remember { mutableStateOf(false) }
@@ -807,7 +808,7 @@ private fun MatrixProgressStage(
                     }
                 )
             }
-            Matrix.LOGIN_EMAIL_IDENTITY -> {
+            MatrixUtils.LOGIN_EMAIL_IDENTITY -> {
                 EmailConfirmationSheet(
                     model = model,
                     currentStage = currentStage,
@@ -828,6 +829,7 @@ private fun EmailConfirmationSheet(
 ) {
     val counter = remember { mutableStateOf(STOPWATCH_MAX) }
     val snackbarHostState = LocalSnackbarHost.current
+    val isLoading = model.isLoading.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit, counter.value) {
@@ -905,6 +907,15 @@ private fun EmailConfirmationSheet(
             data = "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZzVrZTdmbHhybnZ4MTJ5eXNkNTBza3RreWxoeTBtaDB6Yjl2Y2JzMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/gjxYeOTM4Zq1ODtTv3/giphy.gif",
             contentDescription = null
         )
+        BrandHeaderButton(
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .fillMaxWidth(.5f),
+            isLoading = isLoading.value,
+            text = stringResource(Res.string.login_email_confirmation_check)
+        ) {
+            model.matrixStepOver(type = currentStage)
+        }
         ComponentHeaderButton(
             modifier = Modifier
                 .padding(top = 32.dp)

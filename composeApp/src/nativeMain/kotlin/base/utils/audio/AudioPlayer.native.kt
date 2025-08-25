@@ -2,6 +2,7 @@ package base.utils.audio
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import base.utils.orZero
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.ShortVar
@@ -90,7 +91,7 @@ actual fun rememberAudioPlayer(
                             }
                         }
                         AVAudioSession.sharedInstance().apply {
-                            if((this.availableInputs()?.size ?: 0) == 0) {
+                            if(this.availableInputs()?.size.orZero() == 0) {
                                 discard()
                                 return@launch
                             }
@@ -194,7 +195,7 @@ actual fun rememberAudioPlayer(
                         // Average stereo channels if applicable
                         if (channelCount > 1) {
                             for (frame in monoData.indices) {
-                                monoData[frame] = (monoData.getOrNull(frame) ?: 0f) / channelCount
+                                monoData[frame] = monoData.getOrNull(frame).orZero() / channelCount
                             }
                         }
 

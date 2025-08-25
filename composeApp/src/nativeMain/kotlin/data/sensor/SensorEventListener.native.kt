@@ -1,7 +1,7 @@
 package data.sensor
 
 import augmy.interactive.shared.ext.ifNull
-import augmy.interactive.shared.utils.DateUtils
+import base.utils.orZero
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.CoroutineScope
@@ -237,8 +237,8 @@ private fun createListener(
                                         values = listOf(
                                             it.startDate().timeIntervalSinceReferenceDate.toFloat(),
                                             it.numberOfSteps.floatValue,
-                                            it.currentPace?.floatValue ?: 0f,
-                                            it.currentCadence?.floatValue ?: 0f,
+                                            it.currentPace?.floatValue.orZero(),
+                                            it.currentCadence?.floatValue.orZero(),
                                         ).toFloatArray()
                                     )
                                 )

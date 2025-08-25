@@ -1,8 +1,9 @@
 package ui.conversation.components.audio
 
 import androidx.lifecycle.viewModelScope
-import base.utils.Matrix.Media.MATRIX_REPOSITORY_PREFIX
+import base.utils.MatrixUtils.Media.MATRIX_REPOSITORY_PREFIX
 import base.utils.getExtensionFromMimeType
+import base.utils.orZero
 import com.fleeksoft.ksoup.Ksoup
 import data.io.base.BaseResponse
 import data.io.social.network.conversation.message.MediaIO
@@ -131,7 +132,7 @@ class MediaProcessorModel(
                 progress = null
             )
             var bytesSentTotal = 0L
-            val totalContentSize = media.sumOf { it?.size ?: 0 }
+            val totalContentSize = media.sumOf { it?.size.orZero() }
             _resultData.value = media.mapIndexedNotNull { index, unit ->
                 (if(unit == null) null else repository.getFileByteArray(
                     url = unit.url ?: "",
@@ -143,7 +144,7 @@ class MediaProcessorModel(
                         )
                     }
                 )).let {
-                    bytesSentTotal += unit?.size ?: 0L
+                    bytesSentTotal += unit?.size.orZero()
                     if(it == null || unit == null) null else unit to it.byteArray
                 }
             }.toMap()
@@ -163,7 +164,7 @@ class MediaProcessorModel(
                     progress = null
                 )
                 var bytesSentTotal = 0L
-                val totalContentSize = media.sumOf { it?.size ?: 0 }
+                val totalContentSize = media.sumOf { it?.size.orZero() }
                 val toBeScheduled = mutableListOf<MediaIO>()
                 media.forEachIndexed { index, unit ->
                     if(unit != null && dataManager.cachedFiles.value[unit.url] == null) {
@@ -199,7 +200,7 @@ class MediaProcessorModel(
                                     put(
                                         unit.url ?: "",
                                         if(result != null) {
-                                            bytesSentTotal += unit.size ?: 0
+                                            bytesSentTotal += unit.size.orZero()
                                             BaseResponse.Success(
                                                 unit.copy(
                                                     path = result.path?.toString(),

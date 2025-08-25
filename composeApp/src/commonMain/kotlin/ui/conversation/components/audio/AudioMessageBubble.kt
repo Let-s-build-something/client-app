@@ -39,6 +39,7 @@ import augmy.interactive.shared.ui.components.MinimalisticIcon
 import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.utils.DateUtils
 import base.utils.audio.rememberAudioPlayer
+import base.utils.orZero
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -71,7 +72,7 @@ fun AudioMessageBubble(
     val waveformHeight = remember { 50.dp }
     val totalLengthMs = rememberUpdatedState(
         calculateAudioLength(
-            byteArraySize = resultByteArray.value?.size ?: 0,
+            byteArraySize = resultByteArray.value?.size.orZero(),
             sampleRate = 44100, // get info from .wav once we support multi channel etc.
             bytesPerSample = 2,
             channels = 1
@@ -146,7 +147,7 @@ fun AudioMessageBubble(
                 .padding(horizontal = 16.dp)
                 .size(waveformHeight - 16.dp),
             amplitudes = player.barPeakAmplitudes.value.takeIf { isPlaying.value }.orEmpty(),
-            median = player.peakMedian.value.takeIf { isPlaying.value } ?: 0.0
+            median = player.peakMedian.value.takeIf { isPlaying.value }.orZero()
         )
         player.barPeakAmplitudes.value.takeLast(player.barsCount).forEach { bar ->
             Box(

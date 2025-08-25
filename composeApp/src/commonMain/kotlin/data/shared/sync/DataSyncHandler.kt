@@ -12,6 +12,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import net.folivo.trixnity.clientserverapi.model.sync.Sync
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.events.ClientEvent
@@ -24,6 +28,7 @@ import net.folivo.trixnity.core.model.events.m.room.EncryptionEventContent
 import net.folivo.trixnity.core.model.events.m.room.HistoryVisibilityEventContent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent
 import net.folivo.trixnity.core.model.events.m.room.NameEventContent
+import net.folivo.trixnity.core.model.events.m.room.PowerLevelsEventContent
 import net.folivo.trixnity.core.model.events.originTimestampOrNull
 import org.koin.mp.KoinPlatform
 
@@ -67,6 +72,7 @@ class DataSyncHandler: MessageProcessor() {
                 var historyVisibility: HistoryVisibilityEventContent.HistoryVisibility? = null
                 var algorithm: EncryptionEventContent? = null
                 val members = mutableListOf<Pair<Boolean?, String?>>()
+                var powerLevels: Pair<LocalDateTime, PowerLevelsEventContent>? = null
 
                 val events = mutableListOf<ClientEvent<*>>()
                     .apply {
@@ -100,6 +106,13 @@ class DataSyncHandler: MessageProcessor() {
                                     }
                                 }
                             }
+                            is PowerLevelsEventContent -> {
+                                event.originTimestampOrNull?.let { millis ->
+                                    val sentAt = Instant.fromEpochMilliseconds(millis)
+                                        .toLocalDateTime(TimeZone.currentSystemDefault())
+                                    powerLevels = sentAt to content
+                                }
+                            }
                             else -> {}
                         }
 
@@ -125,6 +138,9 @@ class DataSyncHandler: MessageProcessor() {
                         }
                     }
 
+                val hasNewPowerLevels = powerLevels?.let {
+                    it.first >= (room.summary?.powerLevelsTime ?: it.first)
+                } ?: false
                 val newItem = room.copy(
                     summary = (room.summary ?: RoomSummary()).copy(
                         avatar = avatar?.url?.takeIf { it.isNotBlank() }?.let {
@@ -139,7 +155,9 @@ class DataSyncHandler: MessageProcessor() {
                             ?: name
                             ?: room.summary?.canonicalAlias
                             ?: (if (isDirect) room.summary?.heroes?.firstOrNull()?.full ?: members.first { it.first != false }.second else null),
-                        isDirect = isDirect
+                        isDirect = isDirect,
+                        powerLevels = powerLevels?.takeIf { hasNewPowerLevels }?.second ?: room.summary?.powerLevels,
+                        powerLevelsTime = if (hasNewPowerLevels) powerLevels.first else room.summary?.powerLevelsTime
                     ),
                     prevBatch = room.timeline?.previousBatch,
                     ownerPublicId = owner,
@@ -197,13 +215,13 @@ class DataSyncHandler: MessageProcessor() {
 
     private fun Sync.Response.Rooms.KnockedRoom.asConversation(id: RoomId) = ConversationRoomIO(
         id = id.full,
-        knockState = knockState,
+        knockState = strippedState,
         type = RoomType.Knocked
     )
 
     private fun Sync.Response.Rooms.InvitedRoom.asConversation(id: RoomId) =  ConversationRoomIO(
         id = id.full,
-        inviteState = inviteState,
+        inviteState = strippedState,
         type = RoomType.Invited
     )
 
