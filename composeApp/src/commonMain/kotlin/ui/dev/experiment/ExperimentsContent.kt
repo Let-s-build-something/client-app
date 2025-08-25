@@ -4,17 +4,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -28,9 +24,7 @@ import androidx.compose.foundation.text.input.byValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Quiz
@@ -43,9 +37,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,16 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import augmy.interactive.shared.ext.scalingClickable
-import augmy.interactive.shared.ui.base.LocalScreenSize
 import augmy.interactive.shared.ui.components.ComponentHeaderButton
 import augmy.interactive.shared.ui.components.ProgressPressableContainer
 import augmy.interactive.shared.ui.components.SimpleModalBottomSheet
@@ -75,15 +62,12 @@ import augmy.interactive.shared.ui.components.input.DELAY_BETWEEN_TYPING_SHORT
 import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.ui.theme.SharedColors
 import data.io.experiment.ExperimentIO
-import data.io.experiment.ExperimentSet
-import data.io.experiment.ExperimentSetValue
 import data.io.experiment.FullExperiment
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 @Composable
 fun ExperimentContent(model: ExperimentModel = koinViewModel()) {
@@ -650,234 +634,4 @@ private fun ChoiceBehaviorDialog(
         ),
         onDismissRequest = onDismissRequest
     )
-}
-
-@OptIn(ExperimentalUuidApi::class)
-@Composable
-private fun SetListDialog(
-    model: ExperimentModel,
-    experiment: FullExperiment,
-    selectedSet: ExperimentSet?,
-    onConfirm: (ExperimentSet) -> Unit,
-    onDismissRequest: () -> Unit
-) {
-    val cancellableScope = rememberCoroutineScope()
-    val setPick = remember(experiment.data.uid) {
-        mutableStateOf(selectedSet)
-    }
-
-    AlertDialog(
-        title = "Select set of values",
-        intrinsicContent = false,
-        additionalContent = {
-            AnimatedVisibility(setPick.value != null) {
-                setPick.value?.let { set ->
-                    val values = remember(set.uid) {
-                        mutableStateListOf(*set.values.toTypedArray())
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = LocalTheme.current.colors.backgroundLight,
-                                shape = LocalTheme.current.shapes.rectangularActionShape
-                            )
-                            .border(
-                                width = .5.dp,
-                                color = LocalTheme.current.colors.disabled,
-                                shape = LocalTheme.current.shapes.rectangularActionShape
-                            )
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                    ) {
-                        ExperimentSet(
-                            set = set.copy(values = listOf()),
-                            size = values.size,
-                            setPick = null
-                        )
-
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp, alignment = Alignment.CenterVertically)
-                        ) {
-                            item(key = "addNew") {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    ComponentHeaderButton(
-                                        text = "New value",
-                                        modifier = Modifier.fillMaxWidth(.6f),
-                                        endImageVector = Icons.Outlined.Add
-                                    ) {
-                                        values.add(0, ExperimentSetValue(""))
-                                        model.updateSet(set.copy(values = values))
-                                    }
-                                }
-                            }
-                            items(
-                                count = values.size,
-                                key = { values.getOrNull(it)?.uid ?: Uuid.random().toString() }
-                            ) { index ->
-                                val value = values.getOrNull(index)
-                                val valueState = remember(value) {
-                                    TextFieldState(initialText = value?.value ?: "")
-                                }
-
-                                LaunchedEffect(valueState.text) {
-                                    if (valueState.text != value?.value) {
-                                        cancellableScope.coroutineContext.cancelChildren()
-                                        cancellableScope.launch {
-                                            value?.copy(value = valueState.text.toString())?.let { newValue ->
-                                                values[index] = newValue
-                                                delay(DELAY_BETWEEN_TYPING_SHORT)
-                                                model.updateSet(set.copy(values = values))
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateItem(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    CustomTextField(
-                                        modifier = Modifier.weight(1f),
-                                        backgroundColor = LocalTheme.current.colors.backgroundDark,
-                                        paddingValues = PaddingValues(6.dp),
-                                        state = valueState,
-                                        textStyle = LocalTheme.current.styles.title.copy(
-                                            fontSize = 32.sp
-                                        )
-                                    )
-
-                                    ProgressPressableContainer(
-                                        modifier = Modifier.requiredSize(28.dp),
-                                        onFinish = {
-                                            values.removeAt(index)
-                                            model.updateSet(set.copy(values = values))
-                                        },
-                                        trackColor = LocalTheme.current.colors.disabled,
-                                        progressColor = SharedColors.RED_ERROR
-                                    ) {
-                                        Icon(
-                                            modifier = Modifier.size(24.dp),
-                                            imageVector = Icons.Outlined.Delete,
-                                            contentDescription = null,
-                                            tint = LocalTheme.current.colors.secondary
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            val sets = model.sets.collectAsState()
-
-            LazyColumn(
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .heightIn(max = (LocalScreenSize.current.height * .5f).dp)
-                    .animateContentSize()
-            ) {
-                stickyHeader(key = "addNewButton") {
-                    ComponentHeaderButton(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 6.dp)
-                            .fillMaxWidth(),
-                        text = "New set",
-                        endImageVector = Icons.Outlined.Add
-                    ) {
-                        val newSet = ExperimentSet(name = "Set ${sets.value.size}")
-                        model.createSet(newSet)
-                        setPick.value = newSet
-                    }
-                }
-                items(
-                    items = setPick.value?.let { picked ->
-                        sets.value.filter { it.uid != picked.uid }
-                    } ?: sets.value,
-                    key = { it.uid }
-                ) { set ->
-                    ExperimentSet(
-                        modifier = Modifier.animateItem(),
-                        set = set,
-                        size = set.values.size,
-                        setPick = setPick
-                    )
-                }
-            }
-        },
-        confirmButtonState = ButtonState(
-            enabled = setPick.value != null,
-            text = "Confirm",
-            onClick = {
-                setPick.value?.let { onConfirm(it) }
-            }
-        ),
-        onDismissRequest = onDismissRequest
-    )
-}
-
-@Composable
-private fun ExperimentSet(
-    modifier: Modifier = Modifier,
-    set: ExperimentSet,
-    size: Int,
-    setPick: MutableState<ExperimentSet?>?
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp)
-            .scalingClickable(key = set.uid, hoverEnabled = false, scaleInto = .95f) {
-                setPick?.value = set
-            }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = buildAnnotatedString {
-                    append(set.name)
-                    withStyle(SpanStyle(color = LocalTheme.current.colors.disabled)) {
-                        append(" (${size} values)")
-                    }
-                },
-                style = LocalTheme.current.styles.category
-            )
-            Text(
-                text = set.values.joinToString(", ") { it.value },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = LocalTheme.current.styles.regular
-            )
-        }
-
-        if (setPick != null) {
-            val isSelected = setPick.value?.uid == set.uid
-            Icon(
-                modifier = Modifier
-                    .scalingClickable(key = set.uid.plus(isSelected)) {
-                        setPick.value = if (isSelected) null else set
-                    }
-                    .size(32.dp)
-                    .padding(6.dp),
-                imageVector = if (isSelected) Icons.Outlined.Close else Icons.Outlined.Edit,
-                contentDescription = null,
-                tint = if (isSelected) {
-                    LocalTheme.current.colors.secondary
-                } else LocalTheme.current.colors.disabled
-            )
-        }
-    }
 }
