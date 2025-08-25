@@ -6,6 +6,7 @@ import data.io.experiment.ExperimentSet
 import data.io.experiment.ExperimentSetValue
 import data.io.experiment.FullExperiment
 import data.shared.SharedModel
+import korlibs.datastructure.iterators.fastIterateRemove
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -121,6 +122,17 @@ class ExperimentModel(
             _sets.update {
                 it.map { oldSet ->
                     if (oldSet.uid == set.uid) set else oldSet
+                }
+            }
+        }
+    }
+
+    fun removeSet(uid: String) {
+        viewModelScope.launch {
+            repository.removeSet(uid)
+            _sets.update { prev ->
+                prev.toMutableList().apply {
+                    fastIterateRemove { it.uid == uid }
                 }
             }
         }

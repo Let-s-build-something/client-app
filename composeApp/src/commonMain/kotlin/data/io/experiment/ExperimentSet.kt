@@ -12,5 +12,15 @@ data class ExperimentSet(
     @PrimaryKey
     val uid: String = Uuid.random().toString(),
     val name: String,
+    val randomize: Boolean = true,
     val values: List<ExperimentSetValue> = listOf()
-)
+) {
+    override fun toString(): String {
+        return "{" +
+                "uid: $uid, " +
+                "name: $name, " +
+                "randomize: $randomize, " +
+                "values: $values, " +
+                "}"
+    }
+}

@@ -301,7 +301,8 @@ private fun ColumnScope.ExperimentSheetContent(model: DeveloperConsoleModel) {
 
     experimentToShow.value.firstOrNull().let { experiment ->
         if (experiment != null) {
-            val values = experiment.sets.firstOrNull()?.values
+            val set = experiment.sets.firstOrNull()
+            val values = if (set?.randomize == true) set.values.shuffled() else set?.values
             if (values.isNullOrEmpty()) {
                 return@let
             }

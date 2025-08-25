@@ -87,5 +87,12 @@ object DatabaseMigrations {
             )
         }
     }
-
+    val MIGRATION_85_86 = object : Migration(85, 86) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "ALTER TABLE ${AppRoomDatabase.TABLE_EXPERIMENT_SET} " +
+                        "ADD COLUMN randomize INTEGER NOT NULL DEFAULT 1"
+            )
+        }
+    }
 }
