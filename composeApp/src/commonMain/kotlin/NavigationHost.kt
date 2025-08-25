@@ -28,6 +28,7 @@ import ui.conversation.message.MessageDetailScreen
 import ui.conversation.message.messageDetailModule
 import ui.conversation.search.ConversationSearchScreen
 import ui.conversation.settings.ConversationSettingsScreen
+import ui.conversation.settings.roles.ConversationRoleManagementScreen
 import ui.home.HomeScreen
 import ui.login.LoginScreen
 import ui.login.loginModule
@@ -117,6 +118,9 @@ fun NavigationHost(
             }
             composable<NavigationNode.ConversationSettings> {
                 ConversationSettingsScreen(conversationId = it.arguments?.getString("conversationId"))
+            }
+            composable<NavigationNode.ManageRoles> {
+                ConversationRoleManagementScreen(roomId = it.arguments?.getString("roomId"))
             }
             composable<NavigationNode.SearchUser> {
                 SearchUserScreen(

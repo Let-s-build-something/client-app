@@ -3,6 +3,7 @@ package database
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import database.DatabaseMigrations.MIGRATION_82_83
 import database.DatabaseMigrations.MIGRATION_83_84
+import database.DatabaseMigrations.MIGRATION_84_85
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import org.koin.dsl.module
@@ -15,7 +16,8 @@ internal val databaseModule = module {
             .setQueryCoroutineContext(Dispatchers.IO)
             .addMigrations(
                 MIGRATION_82_83,
-                MIGRATION_83_84
+                MIGRATION_83_84,
+                MIGRATION_84_85
             )
             .addTypeConverter(AppDatabaseConverter())
             .build()
@@ -35,4 +37,5 @@ internal val databaseModule = module {
     factory { get<AppRoomDatabase>().gravityDao() }
     factory { get<AppRoomDatabase>().experimentDao() }
     factory { get<AppRoomDatabase>().experimentSetDao() }
+    factory { get<AppRoomDatabase>().conversationRoleDao() }
 }

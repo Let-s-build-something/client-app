@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Face
 import androidx.compose.material.icons.outlined.FaceRetouchingOff
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.ManageAccounts
 import androidx.compose.material.icons.outlined.Moving
 import androidx.compose.material.icons.outlined.PersonAddAlt
 import androidx.compose.material.icons.outlined.PersonRemove
@@ -66,6 +67,7 @@ import augmy.composeapp.generated.resources.Res
 import augmy.composeapp.generated.resources.accessibility_add_new_member
 import augmy.composeapp.generated.resources.accessibility_change_avatar
 import augmy.composeapp.generated.resources.accessibility_change_username
+import augmy.composeapp.generated.resources.accessibility_manage_roles
 import augmy.composeapp.generated.resources.accessibility_scroll_up
 import augmy.composeapp.generated.resources.account_sign_out_message
 import augmy.composeapp.generated.resources.button_block
@@ -249,7 +251,7 @@ fun ConversationSettingsScreen(conversationId: String?) {
 fun ConversationSettingsContent(
     modifier: Modifier = Modifier,
     conversationId: String?,
-    model: ConversationSettingsModel  = koinViewModel(
+    model: ConversationSettingsModel = koinViewModel(
         key = conversationId,
         parameters = {
             parametersOf(conversationId ?: "")
@@ -375,7 +377,7 @@ fun ConversationSettingsContent(
         )
     }
 
-    if(showPictureChangeDialog.value) {
+    if (showPictureChangeDialog.value) {
         DialogChangeRoomAvatar(
             detail = detail.value,
             model = model,
@@ -485,7 +487,7 @@ fun ConversationSettingsContent(
             item {
                 Spacer(modifier = Modifier.height(12.dp))
             }
-            if(detail.value?.isDirect == false || publicRoom != null) {
+            if ((detail.value?.isDirect == false || publicRoom != null) && conversationId != null) {
                 item("membersHeader") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -498,24 +500,40 @@ fun ConversationSettingsContent(
                                 color = LocalTheme.current.colors.disabled
                             )
                         )
-                        if (inviteEnabled && myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.invite.orDefault(INVITE_DEFAULT)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             MinimalisticIcon(
-                                imageVector = Icons.Outlined.PersonAddAlt,
-                                contentDescription = stringResource(Res.string.accessibility_add_new_member),
+                                imageVector = Icons.Outlined.ManageAccounts,
+                                contentDescription = stringResource(Res.string.accessibility_manage_roles),
                                 onTap = {
                                     scope.launch {
                                         navController?.navigate(
-                                            NavigationNode.SearchUser(
-                                                isInvitation = true,
-                                                awaitingResult = true,
-                                                excludeUsers = withContext(Dispatchers.Default) {
-                                                    members.itemSnapshotList.joinToString(",") { it?.userId ?: "" }
-                                                }
-                                            )
+                                            NavigationNode.ManageRoles(roomId = conversationId)
                                         )
                                     }
                                 }
                             )
+                            if (inviteEnabled && myPowerLevel.value.orZero() >= detail.value?.data?.summary?.powerLevels?.invite.orDefault(INVITE_DEFAULT)) {
+                                MinimalisticIcon(
+                                    imageVector = Icons.Outlined.PersonAddAlt,
+                                    contentDescription = stringResource(Res.string.accessibility_add_new_member),
+                                    onTap = {
+                                        scope.launch {
+                                            navController?.navigate(
+                                                NavigationNode.SearchUser(
+                                                    isInvitation = true,
+                                                    awaitingResult = true,
+                                                    excludeUsers = withContext(Dispatchers.Default) {
+                                                        members.itemSnapshotList.joinToString(",") { it?.userId ?: "" }
+                                                    }
+                                                )
+                                            )
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

@@ -10,9 +10,8 @@ import data.io.social.network.conversation.message.MediaIO
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.format
 import kotlinx.serialization.json.Json
-import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.InvitedRoom
 import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.JoinedRoom.UnreadNotificationCounts
-import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.KnockedRoom.InviteState
+import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.StrippedState
 import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.m.PresenceEventContent
 import net.folivo.trixnity.core.model.events.m.room.MemberEventContent.Invite
@@ -106,22 +105,12 @@ class AppDatabaseConverter {
     }
     
     @TypeConverter
-    fun fromInvitedInviteState(value: InviteState?): String? {
+    fun fromStrippedState(value: StrippedState?): String? {
         return if(value == null) null else json.encodeToString(value)
     }
     
     @TypeConverter
-    fun toInvitedInviteState(value: String?): InviteState? {
-        return if(value == null) null else json.decodeFromString(value)
-    }
-
-    @TypeConverter
-    fun fromInviteState(value: InvitedRoom.InviteState?): String? {
-        return if(value == null) null else json.encodeToString(value)
-    }
-
-    @TypeConverter
-    fun toInviteState(value: String?): InvitedRoom.InviteState? {
+    fun toStrippedState(value: String?): StrippedState? {
         return if(value == null) null else json.decodeFromString(value)
     }
 

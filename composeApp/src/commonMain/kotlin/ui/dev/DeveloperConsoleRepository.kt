@@ -2,6 +2,7 @@ package ui.dev
 
 import data.io.base.BaseResponse
 import database.dao.ConversationMessageDao
+import database.dao.ConversationRoleDao
 import database.dao.ConversationRoomDao
 import database.dao.EmojiSelectionDao
 import database.dao.GravityDao
@@ -42,6 +43,7 @@ class DeveloperConsoleRepository {
     suspend fun clearAllDaos() {
         with(KoinPlatform.getKoin()) {
             get<NetworkItemDao>().removeAll()
+            get<ConversationRoleDao>().removeAll()
             get<ConversationMessageDao>().removeAll()
             get<EmojiSelectionDao>().removeAll()
             get<PagingMetaDao>().removeAll()

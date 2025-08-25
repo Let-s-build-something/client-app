@@ -8,12 +8,11 @@ import androidx.room.PrimaryKey
 import database.AppRoomDatabase
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.InvitedRoom
 import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.JoinedRoom.Ephemeral
 import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.JoinedRoom.UnreadNotificationCounts
-import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.KnockedRoom.InviteState
 import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.RoomAccountData
 import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.State
+import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.StrippedState
 import net.folivo.trixnity.clientserverapi.model.sync.Sync.Response.Rooms.Timeline
 import net.folivo.trixnity.core.model.events.m.room.HistoryVisibilityEventContent
 import net.folivo.trixnity.core.model.keys.EncryptionAlgorithm
@@ -51,11 +50,11 @@ data class ConversationRoomIO @OptIn(ExperimentalUuidApi::class) constructor(
 
     /** The stripped state of a room that the user has been invited to. */
     @ColumnInfo("invite_state")
-    val inviteState: InvitedRoom.InviteState? = null,
+    val inviteState: StrippedState? = null,
 
     /** The stripped state of a room that the user has knocked upon. */
     @ColumnInfo("knock_state")
-    val knockState: InviteState? = null,
+    val knockState: StrippedState? = null,
 
     /** Database flag: an identifier of the owner of this item */
     @ColumnInfo("owner_public_id")

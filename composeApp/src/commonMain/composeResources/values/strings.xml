@@ -17,6 +17,7 @@
   <string name="screen_search_preferences">Search here</string>
   <string name="screen_network_new">Include another human</string>
   <string name="screen_search_user">Let the manhunt begin</string>
+  <string name="screen_manage_roles">Director be like</string>
   <string name="screen_search_room">Wild tribe search</string>
   <string name="screen_user_default">Newfound pirate</string>
 
@@ -341,6 +342,7 @@
   <string name="accessibility_device_jvm">Desktop device</string>
   <string name="accessibility_device_android">Android device</string>
   <string name="accessibility_add_new_member">Add new member</string>
+  <string name="accessibility_manage_roles">Manage roles</string>
   <string name="accessibility_show_password">Show password</string>
   <string name="accessibility_hide_password">Hide password</string>
   <string name="accessibility_change_avatar">Change avatar</string>
@@ -388,6 +390,10 @@
   <string name="accessibility_message_reply">Drag the same direction to reply to this message</string>
   <string name="accessibility_giphy_logo">Powered by GIPHY</string>
   <string name="accessibility_play">Play</string>
+  <string name="accessibility_permission_up">Move permission to higher role</string>
+  <string name="accessibility_permission_down">Move permission to lower role</string>
+  <string name="accessibility_role_up">Move role above higher role</string>
+  <string name="accessibility_role_down">Move role below lower role</string>
 
   <!--- ============================= FIREBASE ==================================== -->
   <string name="firebase_web_client_id" translatable="false">96838385672-63j7rip50fom6s06usjn11tjskrf6n2h.apps.googleusercontent.com</string>

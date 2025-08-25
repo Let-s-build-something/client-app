@@ -363,7 +363,7 @@ abstract class MessageProcessor {
                     ConversationMessageIO(
                         content = getString(
                             Res.string.message_room_created,
-                            event.senderOrNull?.localpart ?: content.creator?.localpart ?: "",
+                            event.senderOrNull?.localpart ?: "",
                         ),
                         authorPublicId = AUTHOR_SYSTEM
                     )

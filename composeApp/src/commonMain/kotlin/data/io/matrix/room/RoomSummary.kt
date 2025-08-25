@@ -1,6 +1,8 @@
 package data.io.matrix.room
 
+import augmy.interactive.shared.utils.DateUtils
 import data.io.social.network.conversation.message.MediaIO
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import net.folivo.trixnity.core.model.UserId
@@ -28,6 +30,7 @@ data class RoomSummary(
     val isDirect: Boolean? = null,
 
     val powerLevels: PowerLevelsEventContent? = null,
+    val powerLevelsTime: LocalDateTime? = if (powerLevels != null) DateUtils.localNow else null,
 
     /** Message sent out to invited people by default if not changed. */
     val invitationMessage: String? = null,

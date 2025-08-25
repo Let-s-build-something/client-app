@@ -12,6 +12,7 @@ import data.NetworkProximityCategory
 import data.io.base.BaseResponse
 import data.io.matrix.room.FullConversationRoom
 import data.io.matrix.room.event.ConversationRoomMember
+import data.io.social.network.conversation.ConversationRole
 import data.io.social.network.conversation.message.MediaIO
 import data.io.user.NetworkItemIO
 import data.shared.SharedModel
@@ -32,14 +33,12 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Contextual
 import net.folivo.trixnity.client.verification
 import net.folivo.trixnity.client.verification.ActiveUserVerification
 import net.folivo.trixnity.client.verification.ActiveVerificationState
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
-import net.folivo.trixnity.core.model.events.EventType
 import net.folivo.trixnity.core.model.events.m.room.AvatarEventContent
 import net.folivo.trixnity.core.model.events.m.room.ImageInfo
 import net.folivo.trixnity.core.model.events.m.room.Membership
@@ -48,12 +47,24 @@ import net.folivo.trixnity.core.model.events.m.room.PowerLevelsEventContent
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import ui.conversation.ConversationDataManager
+import ui.conversation.ConversationUtils.getDefaultRoles
 
 val conversationSettingsModule = module {
     factory { ConversationDataManager() }
     single { ConversationDataManager() }
     factory {
-        ConversationSettingsRepository(get(), get(), get(), get(), get(), get(), get(), get(), get())
+        ConversationSettingsRepository(
+            httpClient = get(),
+            roomMemberDao = get(),
+            networkItemDao = get(),
+            conversationRoomDao = get(),
+            conversationRoleDao = get(),
+            conversationMessageDao = get(),
+            matrixPagingDao = get(),
+            presenceEventDao = get(),
+            mediaDataManager = get(),
+            fileAccess = get()
+        )
     }
     viewModelOf(::ConversationSettingsModel)
 }
@@ -91,9 +102,11 @@ class ConversationSettingsModel(
     /** Detailed information about this conversation */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val _conversation = MutableStateFlow(dataManager.conversations.value.second[conversationId])
+    private val _roles = MutableStateFlow<List<ConversationRole>>(listOf())
 
     val ongoingChange = _ongoingChange.asStateFlow()
     val conversation = _conversation.asStateFlow()
+    val roles = _roles.asStateFlow()
     val selectedInvitedUser = _selectedInvitedUser.asStateFlow()
     val verifications = _verifications.asStateFlow()
 
@@ -162,6 +175,16 @@ class ConversationSettingsModel(
                 }
             }
         }
+
+        viewModelScope.launch {
+            _roles.value = repository.getAllRoles(conversationId).let {
+                it.ifEmpty {
+                    val default = getDefaultRoles()
+                    repository.insertRoles(default)
+                    default
+                }
+            }
+        }
     }
 
 
@@ -196,47 +219,6 @@ class ConversationSettingsModel(
             )?.getOrNull() as? PowerLevelsEventContent) ?: conversation.value?.data?.summary?.powerLevels)?.let {
                 it.copy(
                     users = it.users.plus(UserId(member.userId) to power)
-                )
-            }
-
-            if (update != null) {
-                if (matrixClient?.api?.room?.sendStateEvent(
-                    roomId = RoomId(conversationId),
-                    eventContent = update
-                )?.getOrNull() != null) {
-                    conversation.value?.data?.copy(
-                        summary = conversation.value?.data?.summary?.copy(powerLevels = update)
-                    )?.let { newRoom ->
-                        repository.updateRoom(newRoom)
-                        dataManager.updateConversations { prev ->
-                            prev.apply {
-                                this[conversationId] = this[conversationId]?.copy(data = newRoom) ?: FullConversationRoom(newRoom)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    fun updateRoomPowers(
-        invite: Long,
-        ban: Long,
-        kick: Long,
-        redact: Long,
-        events: Map<@Contextual EventType, Long>
-    ) {
-        viewModelScope.launch {
-            val update = ((matrixClient?.api?.room?.getStateEvent(
-                "m.room.power_levels",
-                RoomId(conversationId)
-            )?.getOrNull() as? PowerLevelsEventContent) ?: conversation.value?.data?.summary?.powerLevels)?.let {
-                it.copy(
-                    invite = invite,
-                    ban = ban,
-                    kick = kick,
-                    redact = redact,
-                    events = it.events + events
                 )
             }
 

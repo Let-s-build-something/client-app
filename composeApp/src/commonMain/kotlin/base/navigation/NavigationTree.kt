@@ -9,6 +9,7 @@ import augmy.composeapp.generated.resources.screen_conversation_search
 import augmy.composeapp.generated.resources.screen_conversation_settings
 import augmy.composeapp.generated.resources.screen_home
 import augmy.composeapp.generated.resources.screen_login
+import augmy.composeapp.generated.resources.screen_manage_roles
 import augmy.composeapp.generated.resources.screen_media_detail
 import augmy.composeapp.generated.resources.screen_network_management
 import augmy.composeapp.generated.resources.screen_search_network
@@ -73,6 +74,14 @@ sealed class NavigationNode {
     ): NavigationNode() {
         @Transient override val titleRes: StringResource = Res.string.screen_search_user
         override val deepLink: String = "users/search?awaitingResult=$awaitingResult&excludeUsers=$excludeUsers&isInvitation=$isInvitation"
+    }
+
+    @Serializable
+    data class ManageRoles(
+        val roomId: String? = null
+    ): NavigationNode() {
+        @Transient override val titleRes: StringResource = Res.string.screen_manage_roles
+        override val deepLink: String = "room/roles?roomId=$roomId"
     }
 
     @Serializable
@@ -206,6 +215,7 @@ sealed class NavigationNode {
             NetworkManagement(),
             ConversationSettings(),
             SearchUser(),
+            ManageRoles(),
             ConversationInformation(),
             MediaDetail(),
             MessageDetail()

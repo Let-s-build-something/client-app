@@ -96,7 +96,7 @@ private fun HeaderButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        if(text.isNotEmpty()) {
+        if (text.isNotEmpty()) {
             Text(
                 modifier = Modifier
                     .animateContentSize()
@@ -108,7 +108,7 @@ private fun HeaderButton(
         androidx.compose.animation.AnimatedVisibility(endImageVector != null) {
             Icon(
                 modifier = Modifier
-                    .padding(start = 4.dp)
+                    .padding(start = if (text.isNotEmpty()) 4.dp else 0.dp)
                     .size(
                         with(density) { textStyle.fontSize.toDp() }
                     ),
