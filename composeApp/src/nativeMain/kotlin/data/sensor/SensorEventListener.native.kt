@@ -60,6 +60,7 @@ private fun createListener(
         override var data: MutableStateFlow<List<SensorEvent>> = MutableStateFlow(emptyList())
         override var listener: ((event: SensorEvent) -> Unit)? = null
         override val id: Int = type.ordinal
+        override var instance: String? = null
         override val name: String = type.name
         override val description: String? = type.description
         override val maximumRange: Float? = null

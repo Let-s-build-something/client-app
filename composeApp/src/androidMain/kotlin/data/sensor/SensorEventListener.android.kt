@@ -32,6 +32,7 @@ private fun Sensor.toSensorEventListener(): SensorEventListener {
         }
         override var data: MutableStateFlow<List<data.sensor.SensorEvent>> = MutableStateFlow(emptyList())
         override var listener: ((event: data.sensor.SensorEvent) -> Unit)? = null
+        override var instance: String? = null
 
         override val id: Int = this@toSensorEventListener.id
         override val name: String = this@toSensorEventListener.name
