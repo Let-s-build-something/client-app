@@ -5,6 +5,8 @@ import database.DatabaseMigrations.MIGRATION_82_83
 import database.DatabaseMigrations.MIGRATION_83_84
 import database.DatabaseMigrations.MIGRATION_84_85
 import database.DatabaseMigrations.MIGRATION_85_86
+import database.DatabaseMigrations.MIGRATION_86_87
+import database.DatabaseMigrations.MIGRATION_87_88
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import org.koin.dsl.module
@@ -20,6 +22,8 @@ internal val databaseModule = module {
                 MIGRATION_83_84,
                 MIGRATION_84_85,
                 MIGRATION_85_86,
+                MIGRATION_86_87,
+                MIGRATION_87_88,
             )
             .addTypeConverter(AppDatabaseConverter())
             .build()

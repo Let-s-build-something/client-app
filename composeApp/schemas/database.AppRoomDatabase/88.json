@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 84,
-    "identityHash": "5fb098052fbfba716d4259d725324f0e",
+    "version": 88,
+    "identityHash": "b393581f9be7267ae1f26e8869791727",
     "entities": [
       {
         "tableName": "room_network_item_table",
@@ -631,7 +631,7 @@
       },
       {
         "tableName": "experiment_table",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `owner` TEXT, `uid` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `activate_until` INTEGER, `setUids` TEXT NOT NULL, `displayFrequency` TEXT NOT NULL, `choiceBehavior` TEXT NOT NULL, PRIMARY KEY(`uid`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `owner` TEXT, `uid` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `activate_until` INTEGER, `setUids` TEXT NOT NULL, `observe_chats` INTEGER NOT NULL, `active_sensors` TEXT NOT NULL, `displayFrequency` TEXT NOT NULL, `choiceBehavior` TEXT NOT NULL, PRIMARY KEY(`uid`))",
         "fields": [
           {
             "fieldPath": "name",
@@ -664,6 +664,18 @@
           {
             "fieldPath": "setUids",
             "columnName": "setUids",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "observeChats",
+            "columnName": "observe_chats",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activeSensors",
+            "columnName": "active_sensors",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -736,7 +748,7 @@
       },
       {
         "tableName": "experiment_set_table",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` TEXT NOT NULL, `name` TEXT NOT NULL, `values` TEXT NOT NULL, PRIMARY KEY(`uid`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`uid` TEXT NOT NULL, `name` TEXT NOT NULL, `randomize` INTEGER NOT NULL, `values` TEXT NOT NULL, PRIMARY KEY(`uid`))",
         "fields": [
           {
             "fieldPath": "uid",
@@ -748,6 +760,12 @@
             "fieldPath": "name",
             "columnName": "name",
             "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "randomize",
+            "columnName": "randomize",
+            "affinity": "INTEGER",
             "notNull": true
           },
           {
@@ -896,7 +914,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5fb098052fbfba716d4259d725324f0e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b393581f9be7267ae1f26e8869791727')"
     ]
   }
 }

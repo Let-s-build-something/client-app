@@ -5,15 +5,19 @@ import data.io.experiment.ExperimentIO
 import data.io.experiment.ExperimentSet
 import data.io.experiment.ExperimentSetValue
 import data.io.experiment.FullExperiment
-import data.shared.SharedModel
+import data.sensor.SensorDelay
+import data.sensor.SensorEventListener
 import korlibs.datastructure.iterators.fastIterateRemove
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import ui.dev.DeveloperConsoleDataManager
+import ui.dev.DeveloperConsoleModel
 
 internal val experimentModule = module {
     factory { ExperimentRepository(get(), get()) }
@@ -23,7 +27,7 @@ internal val experimentModule = module {
 class ExperimentModel(
     private val repository: ExperimentRepository,
     private val dataManager: DeveloperConsoleDataManager
-): SharedModel() {
+): DeveloperConsoleModel(dataManager = dataManager, repository = repository) {
     private val _sets = MutableStateFlow(listOf<ExperimentSet>())
 
     val experiments = dataManager.experiments.asStateFlow()
@@ -61,6 +65,16 @@ class ExperimentModel(
             dataManager.activeExperiments.update { prev ->
                 if (play) prev.plus(experiment.data.uid) else prev.minus(experiment.data.uid)
             }
+
+            experiment.data.activeSensors.forEach { activeSensor ->
+                availableSensors.value.firstOrNull { it.uid == activeSensor.uid }?.let { sensor ->
+                    if (play) {
+                        registerSensor(sensor, activeSensor.delay)
+                    }else unregisterSensor(sensor)
+                }
+            }
+
+            observeChats(experiment.data.observeChats, experiment.data.uid)
 
             val starting = play && (experiment.data.displayFrequency is ExperimentIO.DisplayFrequency.BeginEnd
                     || experiment.data.displayFrequency is ExperimentIO.DisplayFrequency.Permanent)
@@ -122,6 +136,81 @@ class ExperimentModel(
             _sets.update {
                 it.map { oldSet ->
                     if (oldSet.uid == set.uid) set else oldSet
+                }
+            }
+        }
+    }
+
+    fun addActiveSensors(
+        uid: String,
+        sensor: SensorEventListener,
+        delay: SensorDelay
+    ) {
+        viewModelScope.launch {
+            if (activeExperiments.value.contains(uid)) {
+                registerSensor(sensor)
+            }
+
+            withContext(Dispatchers.Default) {
+                dataManager.experiments.update { prev ->
+                    prev.map { experiment ->
+                        if (experiment.data.uid == uid) {
+                            experiment.copy(
+                                data = experiment.data.copy(
+                                    activeSensors = experiment.data.activeSensors.plus(
+                                        ExperimentIO.ActiveSensor(
+                                            uid = sensor.uid,
+                                            delay = delay
+                                        )
+                                    ).distinctBy { it.uid }
+                                )
+                            ).also {
+                                repository.insertExperiment(it.data)
+                            }
+                        } else experiment
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateChatObservation(uid: String, observe: Boolean) {
+        viewModelScope.launch {
+            withContext(Dispatchers.Default) {
+                dataManager.experiments.update { prev ->
+                    prev.map { experiment ->
+                        if (experiment.data.uid == uid) {
+                            experiment.copy(data = experiment.data.copy(observeChats = observe)).also {
+                                repository.insertExperiment(it.data)
+                            }
+                        } else experiment
+                    }
+                }
+            }
+        }
+    }
+
+    fun removeActiveSensors(uid: String, sensor: SensorEventListener) {
+        viewModelScope.launch {
+            if (activeExperiments.value.contains(uid)) {
+                unregisterSensor(sensor)
+            }
+
+            withContext(Dispatchers.Default) {
+                dataManager.experiments.update { prev ->
+                    prev.map { experiment ->
+                        if (experiment.data.uid == uid) {
+                            experiment.copy(
+                                data = experiment.data.copy(
+                                    activeSensors = experiment.data.activeSensors.filter {
+                                        it.uid != sensor.uid
+                                    }
+                                )
+                            ).also {
+                                repository.insertExperiment(it.data)
+                            }
+                        } else experiment
+                    }
                 }
             }
         }

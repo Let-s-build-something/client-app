@@ -31,7 +31,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.WavingHand
@@ -78,16 +77,14 @@ import ui.dev.experiment.ExperimentContent
 
 private enum class ConsoleSection(val imageVector: ImageVector) {
     Logger(Icons.AutoMirrored.Outlined.ReceiptLong),
-    Biometric(Icons.Outlined.WavingHand),
     Experiment(Icons.Outlined.Science),
-    Conversation(Icons.AutoMirrored.Outlined.Chat);
+    Sensors(Icons.Outlined.WavingHand);
 
     override fun toString(): String {
         return when(this) {
             Logger -> "Logs"
-            Biometric -> "Depth"
             Experiment -> "Experiments"
-            Conversation -> "Chats"
+            Sensors -> "Depth"
         }
     }
 }
@@ -99,7 +96,7 @@ fun DeveloperHolderLayout(
     appContent: @Composable () -> Unit = {}
 ) {
     loadKoinModules(developerConsoleModule)
-    val model: DeveloperConsoleModel = koinViewModel()
+    val model: DeveloperConsoleModel = koinViewModel(key = "generic-shared")
 
     val isCompact = LocalDeviceType.current == WindowWidthSizeClass.Compact
     val experimentsToShow = model.experimentsToShow.collectAsState()
@@ -256,9 +253,8 @@ private fun DeveloperConsoleContent(
                         )
                         when(section) {
                             ConsoleSection.Logger -> LoggerContent(model = model, isCompact = isCompact)
-                            ConsoleSection.Biometric -> BiometricContent(model = model)
-                            ConsoleSection.Experiment -> ExperimentContent()
-                            ConsoleSection.Conversation -> ChatsContent(model = model)
+                            ConsoleSection.Experiment -> ExperimentContent(developerModel = model)
+                            ConsoleSection.Sensors -> BiometricContent(model = model)
                         }
                     }
                 }

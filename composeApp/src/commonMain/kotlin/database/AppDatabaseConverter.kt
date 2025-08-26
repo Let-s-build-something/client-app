@@ -165,6 +165,16 @@ class AppDatabaseConverter {
     }
 
     @TypeConverter
+    fun fromActiveSensorList(value: List<ExperimentIO.ActiveSensor>): String {
+        return if (value.isEmpty()) "" else json.encodeToString(value)
+    }
+
+    @TypeConverter
+    fun toActiveSensorList(value: String): List<ExperimentIO.ActiveSensor> {
+        return if (value.isEmpty()) emptyList() else json.decodeFromString(value)
+    }
+
+    @TypeConverter
     fun fromLocalDateTime(value: LocalDateTime): String {
         return value.format(LocalDateTime.Formats.ISO)
     }

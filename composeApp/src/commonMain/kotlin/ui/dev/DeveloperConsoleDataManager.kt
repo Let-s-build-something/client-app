@@ -3,11 +3,17 @@ package ui.dev
 import data.io.base.BaseResponse
 import data.io.experiment.FullExperiment
 import korlibs.logger.Logger
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import utils.DeveloperUtils
 import utils.SharedLogger.LoggerMessage
 
 class DeveloperConsoleDataManager {
+
+    var localStreamJob: Job? = null
+    var remoteStreamJob: Job? = null
+    val streamChannel = Channel<String>(capacity = Channel.UNLIMITED)
 
     /** developer console size */
     val developerConsoleSize = MutableStateFlow(0f)
@@ -33,4 +39,5 @@ class DeveloperConsoleDataManager {
     val experimentsToShow = MutableStateFlow(listOf<FullExperiment>())
     val observedEntities = MutableStateFlow(listOf<String>())
     val listensToChats = MutableStateFlow(true)
+    val activeSensors = MutableStateFlow(listOf<String>())
 }

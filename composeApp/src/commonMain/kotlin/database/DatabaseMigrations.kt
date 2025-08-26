@@ -95,4 +95,20 @@ object DatabaseMigrations {
             )
         }
     }
+    val MIGRATION_86_87 = object : Migration(86, 87) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "ALTER TABLE ${AppRoomDatabase.TABLE_EXPERIMENT} " +
+                        "ADD COLUMN active_sensors TEXT NOT NULL DEFAULT []"
+            )
+        }
+    }
+    val MIGRATION_87_88 = object : Migration(87, 88) {
+        override fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "ALTER TABLE ${AppRoomDatabase.TABLE_EXPERIMENT} " +
+                        "ADD COLUMN observe_chats INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
 }

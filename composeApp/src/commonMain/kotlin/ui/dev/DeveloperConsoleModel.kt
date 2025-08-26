@@ -26,7 +26,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,16 +66,12 @@ internal val developerConsoleModule = module {
 
 
 /** Shared viewmodel for developer console */
-class DeveloperConsoleModel(
+open class DeveloperConsoleModel(
     private val dataManager: DeveloperConsoleDataManager,
     private val repository: DeveloperConsoleRepository
 ): SharedModel() {
 
     private val _availableSensors = MutableStateFlow(listOf<SensorEventListener>())
-    private val _activeSensors = MutableStateFlow(listOf<String>())
-    private var localStreamJob: Job? = null
-    private var remoteStreamJob: Job? = null
-    private val streamChannel = Channel<String>(capacity = Channel.UNLIMITED)
     private val json by lazy {
         Json {
             prettyPrint = false
@@ -133,13 +128,11 @@ class DeveloperConsoleModel(
     var streamingDirectory = ""
     val streamingUrlResponse = dataManager.streamingUrlResponse.asStateFlow()
     val availableSensors = _availableSensors.asStateFlow()
-    val activeSensors = _activeSensors.asStateFlow()
+    val activeSensors = dataManager.activeSensors.asStateFlow()
     val streamLines = MutableStateFlow(listOf<String>())
     val isLocalStreamRunning = MutableStateFlow(false)
     val experimentsToShow = dataManager.experimentsToShow.asStateFlow()
     private val activeExperimentScopes = hashMapOf<String, Job>()
-    val isObservingChats = dataManager.listensToChats.asStateFlow()
-    val observedEntities = dataManager.observedEntities.asStateFlow()
 
 
     //======================================== functions ==========================================
@@ -149,17 +142,13 @@ class DeveloperConsoleModel(
             streamingUrl = settings.getString(KEY_STREAMING_URL, "")
             streamingDirectory = settings.getString(KEY_STREAMING_DIRECTORY, "")
 
-            getAllSensors()?.also {
-                _availableSensors.value = it
-            }
-
             activeSensors.collectLatest { sensors ->
                 _availableSensors.value.forEach { sensor ->
                     sensor.listener = if (sensor.uid in sensors) {
                         { event ->
                             streamEvent(sensor, event)
                         }
-                    }else null
+                    } else null
                 }
             }
         }
@@ -189,7 +178,21 @@ class DeveloperConsoleModel(
             }
         }
 
-        observerChats(dataManager.listensToChats.value)
+        observeChats(dataManager.listensToChats.value, key = null)
+    }
+
+    fun requestAvailableSensors(key: String?) {
+        viewModelScope.launch {
+            getAllSensors()?.also { sensors ->
+                _availableSensors.value = if (key != null) {
+                    sensors.map {
+                        it.apply {
+                            instance = key
+                        }
+                    }
+                }else sensors
+            }
+        }
     }
 
     fun reportExperimentValues(
@@ -208,7 +211,7 @@ class DeveloperConsoleModel(
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    fun observerChats(observe: Boolean) {
+    fun observeChats(observe: Boolean, key: String?) {
         viewModelScope.launch {
             dataManager.listensToChats.value = observe
 
@@ -218,9 +221,9 @@ class DeveloperConsoleModel(
                     if (downloadTimeISO == null) return@launch
                     val downloadTime = LocalDateTime.parse(downloadTimeISO)
 
-                    if (sharedDataManager.observers.none { it is GeneralObserver.MessageObserver }) {
+                    if (sharedDataManager.observers.none { it is GeneralObserver.MessageObserver && it.key == key }) {
                         sharedDataManager.observers.add(
-                            GeneralObserver.MessageObserver { entity ->
+                            GeneralObserver.MessageObserver(key = key) { entity ->
                                 if ((entity.data.sentAt ?: downloadTime) > downloadTime) {
                                     dataManager.observedEntities.update {
                                         it.plus(streamConversationMessage(entity))
@@ -229,9 +232,9 @@ class DeveloperConsoleModel(
                             }
                         )
                     }
-                    if (sharedDataManager.observers.none { it is GeneralObserver.ReactionsObserver }) {
+                    if (sharedDataManager.observers.none { it is GeneralObserver.ReactionsObserver && it.key == key }) {
                         sharedDataManager.observers.add(
-                            GeneralObserver.ReactionsObserver { entity ->
+                            GeneralObserver.ReactionsObserver(key = key) { entity ->
                                 if ((entity.sentAt ?: downloadTime) > downloadTime) {
                                     dataManager.observedEntities.update {
                                         it.plus(streamReaction(entity))
@@ -240,9 +243,9 @@ class DeveloperConsoleModel(
                             }
                         )
                     }
-                    if (sharedDataManager.observers.none { it is GeneralObserver.ConversationStateObserver }) {
+                    if (sharedDataManager.observers.none { it is GeneralObserver.ConversationStateObserver && it.key == key }) {
                         sharedDataManager.observers.add(
-                            GeneralObserver.ConversationStateObserver { entity ->
+                            GeneralObserver.ConversationStateObserver(key = key) { entity ->
                                 dataManager.observedEntities.update {
                                     it.plus(streamConversationState(entity).plus("(${Uuid.random()})"))
                                 }
@@ -253,9 +256,9 @@ class DeveloperConsoleModel(
             } else {
                 dataManager.observedEntities.value = listOf()
                 sharedDataManager.observers.removeAll {
-                    it is GeneralObserver.MessageObserver
+                    (it is GeneralObserver.MessageObserver
                             || it is GeneralObserver.ReactionsObserver
-                            || it is GeneralObserver.ConversationStateObserver
+                            || it is GeneralObserver.ConversationStateObserver) && it.key == key
                 }
             }
         }
@@ -289,7 +292,7 @@ class DeveloperConsoleModel(
     }
 
     fun stopRemoteStream() {
-        remoteStreamJob?.cancel()
+        dataManager.remoteStreamJob?.cancel()
         dataManager.streamingUrlResponse.value = BaseResponse.Idle
     }
 
@@ -301,15 +304,15 @@ class DeveloperConsoleModel(
             dataManager.streamingUrlResponse.value = repository.postStreamData(
                 url = uri.toString(),
                 body = ""
-            ).also {
-                if(it is BaseResponse.Success) {
+            ).also { response ->
+                if(response is BaseResponse.Success) {
                     streamingUrl = uri.toString()
                     settings.putString(KEY_STREAMING_URL, uri.toString())
 
-                    remoteStreamJob = CoroutineScope(Dispatchers.IO).launch {
+                    dataManager.remoteStreamJob = CoroutineScope(Dispatchers.IO).launch {
                         val buffer = mutableListOf<String>()
 
-                        for (line in streamChannel) {
+                        for (line in dataManager.streamChannel) {
                             val step = when(remoteStreamDelay) {
                                 SensorDelay.Slow -> 50
                                 SensorDelay.Normal -> 20
@@ -337,8 +340,8 @@ class DeveloperConsoleModel(
 
     fun registerAllSensors() {
         viewModelScope.launch {
-            _activeSensors.value = _availableSensors.value.mapNotNull { sensor ->
-                if(_activeSensors.value.contains(sensor.uid)) {
+            dataManager.activeSensors.value = _availableSensors.value.mapNotNull { sensor ->
+                if(dataManager.activeSensors.value.contains(sensor.uid)) {
                     null
                 }else {
                     sensor.register()
@@ -350,7 +353,7 @@ class DeveloperConsoleModel(
 
     override fun onCleared() {
         _availableSensors.value.filter {
-            it.uid in _activeSensors.value
+            it.uid in dataManager.activeSensors.value
         }.forEach {
             it.unregister()
         }
@@ -365,7 +368,7 @@ class DeveloperConsoleModel(
             _availableSensors.value.forEach {
                 it.unregister()
             }
-            _activeSensors.value = listOf()
+            dataManager.activeSensors.value = listOf()
         }
     }
 
@@ -394,8 +397,8 @@ class DeveloperConsoleModel(
             }
             val newLine = json.encodeToString(jsonLine)
 
-            if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-                streamChannel.trySend(newLine)
+            if (isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
+                dataManager.streamChannel.trySend(newLine)
                 streamLines.update {
                     it.toMutableList().apply {
                         add(0, newLine)
@@ -413,7 +416,7 @@ class DeveloperConsoleModel(
         val newLine = json.encodeToString(jsonLine)
 
         if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            streamChannel.trySend(newLine)
+            dataManager.streamChannel.trySend(newLine)
             streamLines.update {
                 it.toMutableList().apply {
                     add(0, newLine)
@@ -434,7 +437,7 @@ class DeveloperConsoleModel(
         val newLine = json.encodeToString(jsonLine)
 
         if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            streamChannel.trySend(newLine)
+            dataManager.streamChannel.trySend(newLine)
             streamLines.update {
                 it.toMutableList().apply {
                     add(0, newLine)
@@ -463,7 +466,7 @@ class DeveloperConsoleModel(
         val newLine = json.encodeToString(jsonLine)
 
         if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            streamChannel.trySend(newLine)
+            dataManager.streamChannel.trySend(newLine)
             streamLines.update {
                 it.toMutableList().apply {
                     add(0, newLine)
@@ -483,8 +486,7 @@ class DeveloperConsoleModel(
         }
 
         val jsonLine = buildJsonObject {
-            put("experiment", experiment.name)
-            put("set", experiment.name)
+            put("experiment", experiment.uid)
             customValue?.let { put("customValue", it) }
             put("values", values)
             put("timestamp", DateUtils.localNow.toString())
@@ -492,7 +494,7 @@ class DeveloperConsoleModel(
         val newLine = json.encodeToString(jsonLine)
 
         if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            streamChannel.trySend(newLine)
+            dataManager.streamChannel.trySend(newLine)
             streamLines.update {
                 it.toMutableList().apply {
                     add(0, newLine)
@@ -503,7 +505,7 @@ class DeveloperConsoleModel(
 
     fun stopLocalStream() {
         isLocalStreamRunning.value = false
-        localStreamJob?.cancel()
+        dataManager.localStreamJob?.cancel()
         try {
             if(::sink.isInitialized) sink.close()
         } catch (e: Exception) {
@@ -521,11 +523,11 @@ class DeveloperConsoleModel(
                 settings.putString(KEY_STREAMING_DIRECTORY, streamingDirectory)
                 isLocalStreamRunning.value = true
 
-                localStreamJob = CoroutineScope(Dispatchers.IO).launch {
+                dataManager.localStreamJob = CoroutineScope(Dispatchers.IO).launch {
                     try {
                         sink = file.openSinkFromUri().buffer()
 
-                        for (line in streamChannel) {
+                        for (line in dataManager.streamChannel) {
                             sink.writeUtf8(line)
                             sink.writeUtf8("\n")
                             sink.flush()
@@ -559,7 +561,7 @@ class DeveloperConsoleModel(
 
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                val sensorList = _availableSensors.value.filter { it.uid in _activeSensors.value }
+                val sensorList = _availableSensors.value.filter { it.uid in dataManager.activeSensors.value }
                 val outputFile = file.path.toPath()
 
                 FileSystem.SYSTEM.write(outputFile) {
@@ -577,6 +579,7 @@ class DeveloperConsoleModel(
                             if (values != null) {
                                 val jsonLine = buildJsonObject {
                                     put("sensor", sensorName)
+                                    put("reference", sensor.instance)
                                     put("timestamp", data.timestamp)
                                     put("values", values)
                                 }
@@ -600,7 +603,7 @@ class DeveloperConsoleModel(
         delay: SensorDelay = SensorDelay.Slow
     ) {
         viewModelScope.launch {
-            _activeSensors.update {
+            dataManager.activeSensors.update {
                 it.toMutableSet().apply {
                     add(sensor.uid)
                 }.toList()
@@ -610,7 +613,7 @@ class DeveloperConsoleModel(
     }
 
     fun changeSensorDelay(sensor: SensorEventListener, delay: SensorDelay) {
-        if (_activeSensors.value.contains(sensor.uid)) {
+        if (dataManager.activeSensors.value.contains(sensor.uid)) {
             viewModelScope.launch {
                 sensor.unregister()
                 sensor.register(sensorDelay = delay)
@@ -618,9 +621,9 @@ class DeveloperConsoleModel(
         }
     }
 
-    fun unRegisterSensor(sensor: SensorEventListener) {
+    fun unregisterSensor(sensor: SensorEventListener) {
         viewModelScope.launch {
-            _activeSensors.update {
+            dataManager.activeSensors.update {
                 it.toMutableList().apply {
                     remove(sensor.uid)
                 }

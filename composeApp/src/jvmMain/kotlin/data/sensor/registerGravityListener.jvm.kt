@@ -56,6 +56,7 @@ private fun createRepeatedEventListener(
         override val maximumRange: Float? = null
         override val resolution: Float? = null
         override var delay: SensorDelay = SensorDelay.Slow
+        override var instance: String? = null
         private var runningScope = CoroutineScope(Job())
 
         override fun register(sensorDelay: SensorDelay) {

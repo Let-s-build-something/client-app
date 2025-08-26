@@ -23,7 +23,7 @@ import kotlinx.coroutines.withContext
 import org.koin.mp.KoinPlatform
 import ui.login.safeRequest
 
-class DeveloperConsoleRepository {
+open class DeveloperConsoleRepository {
 
     private val httpClient by lazy {
         KoinPlatform.getKoin().get<HttpClient>()

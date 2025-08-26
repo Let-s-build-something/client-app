@@ -41,8 +41,9 @@ interface SensorEventListener {
     val maximumRange: Float?
     val resolution: Float?
     var delay: SensorDelay
+    var instance: String?
     val uid: String
-        get() = "$id-$name"
+        get() = if (instance == null) "$id-${name.hashCode()}" else "$instance-${name.hashCode()}"
 
     fun register(sensorDelay: SensorDelay = SensorDelay.Slow)
     fun unregister()
