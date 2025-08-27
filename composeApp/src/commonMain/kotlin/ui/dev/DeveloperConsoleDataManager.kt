@@ -6,6 +6,7 @@ import korlibs.logger.Logger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import okio.BufferedSink
 import utils.DeveloperUtils
 import utils.SharedLogger.LoggerMessage
 
@@ -44,4 +45,7 @@ class DeveloperConsoleDataManager {
     val activeExperimentScopes = hashMapOf<String, Job>()
     val isLocalStreamRunning = MutableStateFlow(false)
     var remoteStreamStep = 20
+    var streamingUrl = ""
+    var streamingDirectory = ""
+    var sink: BufferedSink? = null
 }

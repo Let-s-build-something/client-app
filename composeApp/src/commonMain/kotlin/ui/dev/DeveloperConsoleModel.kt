@@ -41,7 +41,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
-import okio.BufferedSink
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import okio.SYSTEM
@@ -126,8 +125,8 @@ open class DeveloperConsoleModel(
     val hostOverride
         get() = dataManager.hostOverride.value
 
-    var streamingUrl = ""
-    var streamingDirectory = ""
+    val streamingUrl
+        get() = dataManager.streamingUrl
     val streamingUrlResponse = dataManager.streamingUrlResponse.asStateFlow()
     val availableSensors = _availableSensors.asStateFlow()
     val activeSensors = dataManager.activeSensors.asStateFlow()
@@ -140,8 +139,8 @@ open class DeveloperConsoleModel(
 
     init {
         viewModelScope.launch {
-            streamingUrl = settings.getString(KEY_STREAMING_URL, "")
-            streamingDirectory = settings.getString(KEY_STREAMING_DIRECTORY, "")
+            dataManager.streamingUrl = settings.getString(KEY_STREAMING_URL, "")
+            dataManager.streamingDirectory = settings.getString(KEY_STREAMING_DIRECTORY, "")
 
             activeSensors.collectLatest { sensors ->
                 _availableSensors.value.forEach { sensor ->
@@ -326,7 +325,7 @@ open class DeveloperConsoleModel(
                 body = ""
             ).also { response ->
                 if(response is BaseResponse.Success) {
-                    streamingUrl = uri.toString()
+                    dataManager.streamingUrl = uri.toString()
                     settings.putString(KEY_STREAMING_URL, uri.toString())
 
                     dataManager.remoteStreamJob = CoroutineScope(Dispatchers.IO).launch {
@@ -335,9 +334,9 @@ open class DeveloperConsoleModel(
                         for (line in dataManager.streamChannel) {
                             buffer.add(line)
 
-                            if (buffer.size >= remoteStreamStep && streamingUrl.isNotBlank()) {
+                            if (buffer.size >= remoteStreamStep && dataManager.streamingUrl.isNotBlank()) {
                                 repository.postStreamData(
-                                    url = streamingUrl,
+                                    url = dataManager.streamingUrl,
                                     body = buffer.joinToString("\n")
                                 ).let {
                                     if(it is BaseResponse.Success) {
@@ -480,30 +479,30 @@ open class DeveloperConsoleModel(
         dataManager.isLocalStreamRunning.value = false
         dataManager.localStreamJob?.cancel()
         try {
-            if(::sink.isInitialized) sink.close()
+            if(dataManager.sink != null) dataManager.sink?.close()
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    lateinit var sink: BufferedSink
     fun setUpLocalStream(file: PlatformFile?) {
-        if (file == null) return
+        if (file == null || dataManager.sink != null) return
 
         viewModelScope.launch {
             try {
-                streamingDirectory = file.path
-                settings.putString(KEY_STREAMING_DIRECTORY, streamingDirectory)
-                dataManager.isLocalStreamRunning.value = true
-
-                dataManager.localStreamJob = CoroutineScope(Dispatchers.IO).launch {
+                if (dataManager.sink == null) {
+                    dataManager.streamingDirectory = file.path
+                    settings.putString(KEY_STREAMING_DIRECTORY, dataManager.streamingDirectory)
+                }
+                (dataManager.localStreamJob ?: CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        sink = file.openSinkFromUri().buffer()
+                        if (dataManager.sink == null) dataManager.sink = file.openSinkFromUri().buffer()
+                        dataManager.isLocalStreamRunning.value = true
 
                         for (line in dataManager.streamChannel) {
-                            sink.writeUtf8(line)
-                            sink.writeUtf8("\n")
-                            sink.flush()
+                            dataManager.sink?.writeUtf8(line)
+                            dataManager.sink?.writeUtf8("\n")
+                            dataManager.sink?.flush()
                         }
 
                     } catch (e: Exception) {
@@ -513,15 +512,17 @@ open class DeveloperConsoleModel(
                             setUpLocalStream(file)
                         }
                     } finally {
-                        if (::sink.isInitialized) {
+                        if (dataManager.sink != null) {
                             try {
-                                sink.close()
+                                dataManager.sink?.close()
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
                         }
                     }
-                }
+                }.also {
+                    dataManager.localStreamJob = it
+                })
 
             } catch (e: Exception) {
                 e.printStackTrace()
