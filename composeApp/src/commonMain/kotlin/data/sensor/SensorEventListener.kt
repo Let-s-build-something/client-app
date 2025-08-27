@@ -3,22 +3,12 @@ package data.sensor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
-
-enum class SensorDelay {
-    Slow,
-    Normal,
-    Fast;
-
-    val milliseconds: Long
-        get() = when (this) {
-            Slow -> 3_000
-            Normal -> 1_000
-            Fast -> 100
-        }
-}
-
 expect fun getGravityListener(onSensorChanged: (event: SensorEvent?) -> Unit): SensorEventListener?
 expect suspend fun getAllSensors(): List<SensorEventListener>?
+
+const val HZ_SPEED_SLOW = 5
+const val HZ_SPEED_NORMAL = 16
+const val HZ_SPEED_FAST = 50
 
 interface SensorEventListener {
     var data: MutableStateFlow<List<SensorEvent>>
@@ -40,11 +30,11 @@ interface SensorEventListener {
     val description: String?
     val maximumRange: Float?
     val resolution: Float?
-    var delay: SensorDelay
+    var hzSpeed: Int
     var instance: String?
     val uid: String
         get() = if (instance == null) "$id-${name.hashCode()}" else "$instance-${name.hashCode()}"
 
-    fun register(sensorDelay: SensorDelay = SensorDelay.Slow)
+    fun register(hzSpeed: Int = HZ_SPEED_NORMAL)
     fun unregister()
 }

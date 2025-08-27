@@ -13,7 +13,7 @@ import data.io.experiment.ExperimentIO
 import data.io.experiment.ExperimentSetValue
 import data.io.social.network.conversation.message.FullConversationMessage
 import data.io.social.network.conversation.message.MessageReactionIO
-import data.sensor.SensorDelay
+import data.sensor.HZ_SPEED_SLOW
 import data.sensor.SensorEvent
 import data.sensor.SensorEventListener
 import data.sensor.getAllSensors
@@ -51,6 +51,7 @@ import org.koin.dsl.module
 import ui.conversation.ConversationState
 import ui.dev.experiment.experimentModule
 import utils.DeveloperUtils
+import utils.SharedLogger
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -66,6 +67,7 @@ internal val developerConsoleModule = module {
 
 
 /** Shared viewmodel for developer console */
+@OptIn(ExperimentalUuidApi::class)
 open class DeveloperConsoleModel(
     private val dataManager: DeveloperConsoleDataManager,
     private val repository: DeveloperConsoleRepository
@@ -129,10 +131,9 @@ open class DeveloperConsoleModel(
     val streamingUrlResponse = dataManager.streamingUrlResponse.asStateFlow()
     val availableSensors = _availableSensors.asStateFlow()
     val activeSensors = dataManager.activeSensors.asStateFlow()
-    val streamLines = MutableStateFlow(listOf<String>())
-    val isLocalStreamRunning = MutableStateFlow(false)
+    val streamLines = dataManager.streamLines.asStateFlow()
+    val isLocalStreamRunning = dataManager.isLocalStreamRunning.asStateFlow()
     val experimentsToShow = dataManager.experimentsToShow.asStateFlow()
-    private val activeExperimentScopes = hashMapOf<String, Job>()
 
 
     //======================================== functions ==========================================
@@ -158,7 +159,7 @@ open class DeveloperConsoleModel(
                     val experiment = dataManager.experiments.value.firstOrNull { it.data.uid == uid }
                     val interval = (experiment?.data?.displayFrequency as? ExperimentIO.DisplayFrequency.Constant)?.delaySeconds
 
-                    if (interval != null && activeExperimentScopes[uid] == null) {
+                    if (interval != null && dataManager.activeExperimentScopes[uid] == null) {
                         val newJob = Job()
                         CoroutineScope(newJob).launch(Dispatchers.Default) {
                             while (isActive) {
@@ -168,12 +169,12 @@ open class DeveloperConsoleModel(
                                 delay(interval * 1000)
                             }
                         }
-                        activeExperimentScopes[uid] = newJob
+                        dataManager.activeExperimentScopes[uid] = newJob
                     }
                 }
-                activeExperimentScopes.keys.filter { it !in list }.forEach {
-                    activeExperimentScopes[it]?.cancel()
-                    activeExperimentScopes.remove(it)
+                dataManager.activeExperimentScopes.keys.filter { it !in list }.forEach {
+                    dataManager.activeExperimentScopes[it]?.cancel()
+                    dataManager.activeExperimentScopes.remove(it)
                 }
             }
         }
@@ -181,8 +182,22 @@ open class DeveloperConsoleModel(
         observeChats(dataManager.listensToChats.value, key = null)
     }
 
+    override fun onCleared() {
+        _availableSensors.value.forEach {
+            it.unregister()
+        }
+        dataManager.activeExperimentScopes.values.forEach {
+            it.cancel()
+        }
+        super.onCleared()
+    }
+
     fun requestAvailableSensors(key: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
+            if (_availableSensors.value.isNotEmpty() && _availableSensors.value.all { it.instance == key }) {
+                SharedLogger.logger.warn { "Attempted duplicate requestAvailableSensors" }
+                return@launch
+            }
             getAllSensors()?.also { sensors ->
                 _availableSensors.value = if (key != null) {
                     sensors.map {
@@ -296,7 +311,12 @@ open class DeveloperConsoleModel(
         dataManager.streamingUrlResponse.value = BaseResponse.Idle
     }
 
-    var remoteStreamDelay = SensorDelay.Normal
+    var remoteStreamStep
+        get() = dataManager.remoteStreamStep
+        set(value) {
+            dataManager.remoteStreamStep = value
+        }
+
     fun setupRemoteStream(uri: CharSequence) {
         if(uri.isBlank()) return
         dataManager.streamingUrlResponse.value = BaseResponse.Loading
@@ -313,15 +333,9 @@ open class DeveloperConsoleModel(
                         val buffer = mutableListOf<String>()
 
                         for (line in dataManager.streamChannel) {
-                            val step = when(remoteStreamDelay) {
-                                SensorDelay.Slow -> 50
-                                SensorDelay.Normal -> 20
-                                SensorDelay.Fast -> 1
-                            }
-
                             buffer.add(line)
 
-                            if (buffer.size >= step && streamingUrl.isNotBlank()) {
+                            if (buffer.size >= remoteStreamStep && streamingUrl.isNotBlank()) {
                                 repository.postStreamData(
                                     url = streamingUrl,
                                     body = buffer.joinToString("\n")
@@ -349,18 +363,6 @@ open class DeveloperConsoleModel(
                 }
             }
         }
-    }
-
-    override fun onCleared() {
-        _availableSensors.value.filter {
-            it.uid in dataManager.activeSensors.value
-        }.forEach {
-            it.unregister()
-        }
-        activeExperimentScopes.values.forEach {
-            it.cancel()
-        }
-        super.onCleared()
     }
 
     fun unregisterAllSensors() {
@@ -395,14 +397,16 @@ open class DeveloperConsoleModel(
                 put("timestamp", event.timestamp)
                 put("values", values)
             }
-            val newLine = json.encodeToString(jsonLine)
+            streamNewLine(json.encodeToString(jsonLine))
+        }
+    }
 
-            if (isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-                dataManager.streamChannel.trySend(newLine)
-                streamLines.update {
-                    it.toMutableList().apply {
-                        add(0, newLine)
-                    }
+    private fun streamNewLine(content: String) {
+        if (isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
+            dataManager.streamChannel.trySend(content)
+            dataManager.streamLines.update {
+                it.take(20).toMutableList().apply {
+                    add(0, content to Uuid.random().toString())
                 }
             }
         }
@@ -414,15 +418,7 @@ open class DeveloperConsoleModel(
             put("conversationId", state.conversationId.toSha256())
         }
         val newLine = json.encodeToString(jsonLine)
-
-        if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            dataManager.streamChannel.trySend(newLine)
-            streamLines.update {
-                it.toMutableList().apply {
-                    add(0, newLine)
-                }
-            }
-        }
+        streamNewLine(newLine)
         return newLine
     }
 
@@ -436,14 +432,7 @@ open class DeveloperConsoleModel(
         }
         val newLine = json.encodeToString(jsonLine)
 
-        if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            dataManager.streamChannel.trySend(newLine)
-            streamLines.update {
-                it.toMutableList().apply {
-                    add(0, newLine)
-                }
-            }
-        }
+        streamNewLine(newLine)
         return newLine
     }
 
@@ -465,14 +454,7 @@ open class DeveloperConsoleModel(
         }
         val newLine = json.encodeToString(jsonLine)
 
-        if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            dataManager.streamChannel.trySend(newLine)
-            streamLines.update {
-                it.toMutableList().apply {
-                    add(0, newLine)
-                }
-            }
-        }
+        streamNewLine(newLine)
         return newLine
     }
 
@@ -491,20 +473,11 @@ open class DeveloperConsoleModel(
             put("values", values)
             put("timestamp", DateUtils.localNow.toString())
         }
-        val newLine = json.encodeToString(jsonLine)
-
-        if(isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
-            dataManager.streamChannel.trySend(newLine)
-            streamLines.update {
-                it.toMutableList().apply {
-                    add(0, newLine)
-                }
-            }
-        }
+        streamNewLine(json.encodeToString(jsonLine))
     }
 
     fun stopLocalStream() {
-        isLocalStreamRunning.value = false
+        dataManager.isLocalStreamRunning.value = false
         dataManager.localStreamJob?.cancel()
         try {
             if(::sink.isInitialized) sink.close()
@@ -521,7 +494,7 @@ open class DeveloperConsoleModel(
             try {
                 streamingDirectory = file.path
                 settings.putString(KEY_STREAMING_DIRECTORY, streamingDirectory)
-                isLocalStreamRunning.value = true
+                dataManager.isLocalStreamRunning.value = true
 
                 dataManager.localStreamJob = CoroutineScope(Dispatchers.IO).launch {
                     try {
@@ -600,7 +573,7 @@ open class DeveloperConsoleModel(
 
     fun registerSensor(
         sensor: SensorEventListener,
-        delay: SensorDelay = SensorDelay.Slow
+        hz: Int = HZ_SPEED_SLOW
     ) {
         viewModelScope.launch {
             dataManager.activeSensors.update {
@@ -608,15 +581,15 @@ open class DeveloperConsoleModel(
                     add(sensor.uid)
                 }.toList()
             }
-            sensor.register(sensorDelay = delay)
+            sensor.register(hzSpeed = hz)
         }
     }
 
-    fun changeSensorDelay(sensor: SensorEventListener, delay: SensorDelay) {
+    fun changeSensorDelay(sensor: SensorEventListener, hz: Int) {
         if (dataManager.activeSensors.value.contains(sensor.uid)) {
             viewModelScope.launch {
                 sensor.unregister()
-                sensor.register(sensorDelay = delay)
+                sensor.register(hzSpeed = hz)
             }
         }
     }

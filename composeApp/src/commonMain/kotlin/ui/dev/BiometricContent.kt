@@ -58,7 +58,9 @@ import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.ui.theme.SharedColors
 import augmy.interactive.shared.utils.DateUtils.formatAs
 import components.ScrollBarProgressIndicator
-import data.sensor.SensorDelay
+import data.sensor.HZ_SPEED_FAST
+import data.sensor.HZ_SPEED_NORMAL
+import data.sensor.HZ_SPEED_SLOW
 import data.sensor.SensorEventListener
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import kotlinx.datetime.LocalDateTime
@@ -190,12 +192,12 @@ fun LazyListScope.sensorList(
     availableSensors: List<SensorEventListener>,
     activeSensors: List<String>,
     model: DeveloperConsoleModel,
-    onActivation: (SensorEventListener, SensorDelay) -> Unit = { sensor, delay ->
+    onActivation: (SensorEventListener, Int) -> Unit = { sensor, hz ->
         if (activeSensors.contains(sensor.uid)) {
             model.unregisterSensor(sensor)
         }else model.registerSensor(
             sensor = sensor,
-            delay = delay
+            hz = hz
         )
     }
 ) {
@@ -203,8 +205,15 @@ fun LazyListScope.sensorList(
         items = availableSensors,
         key = { it.uid }
     ) { sensor ->
+        val delayItems = mutableListOf(
+            HZ_SPEED_SLOW.toString(),
+            HZ_SPEED_NORMAL.toString(),
+            HZ_SPEED_FAST.toString()
+        )
         val selectedDelayIndex = rememberSaveable(sensor.uid) {
-            mutableStateOf(sensor.delay.ordinal)
+            mutableStateOf(
+                delayItems.indexOf(sensor.hzSpeed.toString()).takeIf { it != -1 } ?: 1
+            )
         }
         val showSensorDialog = remember {
             mutableStateOf<SensorEventListener?>(null)
@@ -352,16 +361,16 @@ fun LazyListScope.sensorList(
                         MultiChoiceSwitchMinimalistic(
                             state = rememberMultiChoiceState(
                                 selectedTabIndex = selectedDelayIndex,
-                                items = SensorDelay.entries.map { it.name }.toMutableList()
+                                items = delayItems
                             ),
                             onClick = { index ->
                                 selectedDelayIndex.value = index
-                                model.changeSensorDelay(sensor, SensorDelay.entries[index])
+                                model.changeSensorDelay(sensor, delayItems[index].toIntOrNull() ?: HZ_SPEED_NORMAL)
                             },
                             onItemCreation = { _, index, _ ->
                                 Text(
                                     modifier = Modifier.fillMaxWidth(),
-                                    text = SensorDelay.entries[index].name,
+                                    text = delayItems[index],
                                     style = LocalTheme.current.styles.category.copy(
                                         textAlign = TextAlign.Center
                                     )
@@ -377,7 +386,7 @@ fun LazyListScope.sensorList(
                         .padding(end = 16.dp),
                     colors = LocalTheme.current.styles.switchColorsDefault,
                     onCheckedChange = {
-                        onActivation(sensor, SensorDelay.entries[selectedDelayIndex.value])
+                        onActivation(sensor, delayItems[selectedDelayIndex.value].toIntOrNull() ?: HZ_SPEED_NORMAL)
                     },
                     checked = activeSensors.contains(sensor.uid)
                 )

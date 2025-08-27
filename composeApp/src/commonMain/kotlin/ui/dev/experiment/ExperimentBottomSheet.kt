@@ -592,13 +592,13 @@ private fun SensorSelectionDialog(
                     availableSensors = availableSensors.value,
                     activeSensors = activeSensors.map { it.uid },
                     model = model,
-                    onActivation = { sensor, delay ->
+                    onActivation = { sensor, hz ->
                         if (!activeSensors.removeAll { it.uid == sensor.uid }) {
-                            activeSensors.add(ExperimentIO.ActiveSensor(sensor.uid, delay))
+                            activeSensors.add(ExperimentIO.ActiveSensor(sensor.uid, hz))
                             model.addActiveSensors(
                                 uid = experiment.uid,
                                 sensor = sensor,
-                                delay = delay
+                                hz = hz
                             )
                         } else model.removeActiveSensors(experiment.uid, sensor)
                     }

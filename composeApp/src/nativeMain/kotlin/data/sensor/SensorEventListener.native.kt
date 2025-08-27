@@ -10,6 +10,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.augmy.macos.getBatteryLevel
@@ -65,7 +66,7 @@ private fun createListener(
         override val description: String? = type.description
         override val maximumRange: Float? = null
         override val resolution: Float? = null
-        override var delay: SensorDelay = SensorDelay.Slow
+        override var hzSpeed: Int = HZ_SPEED_NORMAL
 
         private val motionManager = CMMotionManager()
         private val activityManager = CMMotionActivityManager()
@@ -73,11 +74,12 @@ private fun createListener(
         private val pedometer = CMPedometer()
         private val queue = NSOperationQueue.mainQueue
         private val device = UIDevice.currentDevice
-        private var timerScope: CoroutineScope? = null
+        private var timerScope: CoroutineScope = CoroutineScope(Job())
+        private var isRunning = false
 
-        override fun register(sensorDelay: SensorDelay) {
-            val interval = sensorDelay.milliseconds / 1000.0
-            delay = sensorDelay
+        override fun register(hzSpeed: Int) {
+            val interval = 1.0 / hzSpeed
+            this.hzSpeed = hzSpeed
 
             when (type) {
                 SensorType.Attitude -> {
@@ -327,21 +329,21 @@ private fun createListener(
                 else -> {}
             }
 
-            timerScope?.coroutineContext?.cancelChildren()
-            timerScope = null
+            timerScope.coroutineContext.cancelChildren()
+            isRunning = false
         }
 
         private fun registerManualCollector(
             onCollection: () -> Unit
         ) {
-            if (timerScope == null) {
-                timerScope = CoroutineScope(Job())
-            }else timerScope?.coroutineContext?.cancelChildren()
+            if (isRunning) return
+            isRunning = true
 
-            timerScope?.launch {
-                while (true) {
+            timerScope.coroutineContext.cancelChildren()
+            timerScope.launch {
+                while (timerScope.isActive) {
                     onCollection()
-                    delay(delay.milliseconds)
+                    delay(1000L / hzSpeed)
                 }
             }
         }

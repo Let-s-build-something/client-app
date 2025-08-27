@@ -11,7 +11,7 @@ import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.utils.DateUtils
-import data.sensor.SensorDelay
+import data.sensor.HZ_SPEED_NORMAL
 import database.AppRoomDatabase
 import kotlinx.serialization.Serializable
 import kotlin.uuid.ExperimentalUuidApi
@@ -52,10 +52,10 @@ data class ExperimentIO(
     @Serializable
     data class ActiveSensor(
         val uid: String,
-        val delay: SensorDelay
+        val hz: Int = HZ_SPEED_NORMAL
     ) {
         override fun toString(): String {
-            return "{ uid: $uid, delay: $delay }"
+            return "{ uid: $uid, hz: $hz }"
         }
     }
 

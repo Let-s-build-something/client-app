@@ -5,7 +5,6 @@ import data.io.experiment.ExperimentIO
 import data.io.experiment.ExperimentSet
 import data.io.experiment.ExperimentSetValue
 import data.io.experiment.FullExperiment
-import data.sensor.SensorDelay
 import data.sensor.SensorEventListener
 import korlibs.datastructure.iterators.fastIterateRemove
 import kotlinx.coroutines.Dispatchers
@@ -69,7 +68,7 @@ class ExperimentModel(
             experiment.data.activeSensors.forEach { activeSensor ->
                 availableSensors.value.firstOrNull { it.uid == activeSensor.uid }?.let { sensor ->
                     if (play) {
-                        registerSensor(sensor, activeSensor.delay)
+                        registerSensor(sensor, activeSensor.hz)
                     }else unregisterSensor(sensor)
                 }
             }
@@ -144,7 +143,7 @@ class ExperimentModel(
     fun addActiveSensors(
         uid: String,
         sensor: SensorEventListener,
-        delay: SensorDelay
+        hz: Int
     ) {
         viewModelScope.launch {
             if (activeExperiments.value.contains(uid)) {
@@ -160,7 +159,7 @@ class ExperimentModel(
                                     activeSensors = experiment.data.activeSensors.plus(
                                         ExperimentIO.ActiveSensor(
                                             uid = sensor.uid,
-                                            delay = delay
+                                            hz = hz
                                         )
                                     ).distinctBy { it.uid }
                                 )

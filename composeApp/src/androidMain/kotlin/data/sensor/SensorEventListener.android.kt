@@ -39,17 +39,17 @@ private fun Sensor.toSensorEventListener(): SensorEventListener {
         override val description: String? = null
         override val maximumRange: Float = this@toSensorEventListener.maximumRange
         override val resolution: Float = this@toSensorEventListener.resolution
-        override var delay: SensorDelay = SensorDelay.Slow
+        override var hzSpeed: Int = HZ_SPEED_NORMAL
 
-        override fun register(sensorDelay: SensorDelay) {
-            delay = sensorDelay
+        override fun register(hzSpeed: Int) {
+            this.hzSpeed = hzSpeed
             getSensorManager()?.registerListener(
                 eventListener,
                 this@toSensorEventListener,
-                when(sensorDelay) {
-                    SensorDelay.Slow -> SENSOR_DELAY_NORMAL
-                    SensorDelay.Normal -> SENSOR_DELAY_UI
-                    SensorDelay.Fast -> SENSOR_DELAY_GAME
+                when(hzSpeed) {
+                    HZ_SPEED_SLOW -> SENSOR_DELAY_NORMAL
+                    HZ_SPEED_FAST -> SENSOR_DELAY_GAME
+                    else -> SENSOR_DELAY_UI
                 }
             )
         }

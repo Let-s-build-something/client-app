@@ -50,7 +50,6 @@ import augmy.interactive.shared.ui.theme.SharedColors
 import data.io.base.BaseResponse
 import data.io.experiment.ExperimentIO
 import data.io.experiment.FullExperiment
-import data.sensor.SensorDelay
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import org.koin.compose.viewmodel.koinViewModel
 import ui.dev.DeveloperConsoleModel
@@ -175,6 +174,7 @@ fun ExperimentContent(
 
                     val isActive = activeExperiments.value.contains(experiment.data.uid)
                     Text(
+                        modifier = Modifier.padding(end = 8.dp),
                         text = if (isActive) "Active" else "Inactive",
                         style = LocalTheme.current.styles.regular.copy(
                             color = if (isActive) {
@@ -275,8 +275,11 @@ private fun StreamingSection(model: DeveloperConsoleModel) {
             }
         }
         AnimatedVisibility(streamingUrlResponse.value is BaseResponse.Success) {
-            val selectedDelayIndex = rememberSaveable {
-                mutableStateOf(model.remoteStreamDelay.ordinal)
+            val items = mutableListOf("100", "20", "1")
+            val selectedStep = rememberSaveable {
+                mutableStateOf(
+                    items.indexOf(model.remoteStreamStep.toString()).takeIf { it != -1 } ?: 1
+                )
             }
 
             Row(
@@ -291,23 +294,19 @@ private fun StreamingSection(model: DeveloperConsoleModel) {
                 MultiChoiceSwitchMinimalistic(
                     modifier = Modifier.padding(start = 6.dp),
                     state = rememberMultiChoiceState(
-                        selectedTabIndex = selectedDelayIndex,
-                        items = SensorDelay.entries.map { it.name }.toMutableList()
+                        selectedTabIndex = selectedStep,
+                        items = items
                     ),
                     onClick = { index ->
-                        selectedDelayIndex.value = index
-                        model.remoteStreamDelay =  SensorDelay.entries[index]
+                        selectedStep.value = index
+                        model.remoteStreamStep = items[index].toIntOrNull() ?: 20
                     },
                     onItemCreation = { _, index, _ ->
                         Text(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 6.dp),
-                            text = when(SensorDelay.entries[index]) {
-                                SensorDelay.Slow -> 50
-                                SensorDelay.Normal -> 20
-                                SensorDelay.Fast -> 1
-                            }.toString(),
+                            text = items[index],
                             style = LocalTheme.current.styles.category.copy(
                                 textAlign = TextAlign.Center
                             )
@@ -355,8 +354,8 @@ private fun StreamingSection(model: DeveloperConsoleModel) {
     ) {
         val state = rememberLazyListState()
 
-        LaunchedEffect(streamLines.value.size) {
-            state.animateScrollToItem(0)
+        LaunchedEffect(streamLines.value.firstOrNull()) {
+            state.scrollToItem(0)
         }
 
         LazyColumn(
@@ -366,12 +365,15 @@ private fun StreamingSection(model: DeveloperConsoleModel) {
             state = state,
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            reverseLayout = true
+            reverseLayout = false
         ) {
-            items(items = streamLines.value) { line ->
+            items(
+                items = streamLines.value,
+                key = { it.second }
+            ) { line ->
                 Text(
                     modifier = Modifier.animateItem(),
-                    text = line,
+                    text = line.first,
                     style = LocalTheme.current.styles.regular.copy(
                         color = LocalTheme.current.colors.disabled
                     )

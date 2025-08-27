@@ -29,8 +29,6 @@ class DeveloperConsoleDataManager {
     /** filter input + whether it's ASC */
     val httpLogFilter = MutableStateFlow("" to false)
 
-    val streamingUrlResponse = MutableStateFlow<BaseResponse<*>>(BaseResponse.Idle)
-
     /** filter input + whether it's ASC */
     val logFilter = MutableStateFlow<Triple<String, Boolean, Logger.Level?>>(Triple("", false, null))
 
@@ -40,4 +38,10 @@ class DeveloperConsoleDataManager {
     val observedEntities = MutableStateFlow(listOf<String>())
     val listensToChats = MutableStateFlow(true)
     val activeSensors = MutableStateFlow(listOf<String>())
+
+    val streamLines = MutableStateFlow(listOf<Pair<String, Any>>())
+    val streamingUrlResponse = MutableStateFlow<BaseResponse<*>>(BaseResponse.Idle)
+    val activeExperimentScopes = hashMapOf<String, Job>()
+    val isLocalStreamRunning = MutableStateFlow(false)
+    var remoteStreamStep = 20
 }

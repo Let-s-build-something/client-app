@@ -22,7 +22,8 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import augmy.interactive.shared.ui.theme.LocalTheme
-import data.sensor.SensorDelay
+import base.utils.orZero
+import data.sensor.HZ_SPEED_SLOW
 import data.sensor.getGravityListener
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
@@ -47,13 +48,13 @@ fun GravityIndicationContainer(
         }
     }else null
 
-    if(enabled && !gravityData?.values.isNullOrEmpty() && index?.value != gravityData?.values?.size) {
+    if(enabled && !gravityData?.values.isNullOrEmpty() && index?.value != gravityData.values.size) {
         val scope = rememberCoroutineScope()
         val offset = remember(gravityData) {
-            Animatable(gravityData?.values?.firstOrNull()?.offset ?: 0f)
+            Animatable(gravityData.values.firstOrNull()?.offset.orZero())
         }
         val fraction = remember(gravityData) {
-            Animatable(gravityData?.values?.firstOrNull()?.fraction ?: 0f)
+            Animatable(gravityData.values.firstOrNull()?.fraction.orZero())
         }
         val gravityValues = remember {
             mutableStateOf<Triple<Float, Float, Float>?>(null)
@@ -72,9 +73,9 @@ fun GravityIndicationContainer(
         LifecycleResumeEffect(gravityData) {
             scope.coroutineContext.cancelChildren()
             scope.launch {
-                while(index?.value != null && index.value < (gravityData?.values?.size ?: 0)) {
-                    gravityData?.tickMs?.let { delay(it) }
-                    gravityData?.values?.getOrNull(index.value)?.let {
+                while(index?.value != null && index.value < gravityData.values.size) {
+                    delay(gravityData.tickMs)
+                    gravityData.values.getOrNull(index.value)?.let {
                         fraction.animateTo(it.fraction)
                         offset.animateTo(it.offset)
                     }
@@ -82,7 +83,7 @@ fun GravityIndicationContainer(
                 }
                 index?.value = gravityData.values.size
             }
-            listener?.register(sensorDelay = SensorDelay.Slow)
+            listener?.register(HZ_SPEED_SLOW)
 
             onPauseOrDispose {
                 listener?.unregister()
