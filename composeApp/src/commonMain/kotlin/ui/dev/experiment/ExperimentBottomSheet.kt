@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.input.byValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -70,7 +71,7 @@ import kotlin.uuid.ExperimentalUuidApi
 
 private enum class DialogType {
     DeleteConfirmation,
-    Set,
+    Questionnaire,
     Frequency,
     Behavior,
     Sensor
@@ -129,7 +130,7 @@ fun ExperimentBottomSheet(
             ),
             onDismissRequest = { showDialog.value = null }
         )
-        DialogType.Set -> SetListDialog(
+        DialogType.Questionnaire -> QuestionnaireListDialog(
             model = model,
             experiment = experiment,
             selectedSet = selectedSet.value,
@@ -228,22 +229,34 @@ fun ExperimentBottomSheet(
             )
             Text(
                 modifier = Modifier.padding(start = 2.dp),
-                text = "Values set: ",
+                text = "Questionnaire: ",
                 style = LocalTheme.current.styles.regular
             )
             Text(
                 modifier = Modifier
                     .padding(start = 6.dp)
                     .scalingClickable {
-                        showDialog.value = DialogType.Set
+                        showDialog.value = DialogType.Questionnaire
                     }
                     .background(
                         color = LocalTheme.current.colors.backgroundDark,
                         shape = LocalTheme.current.shapes.rectangularActionShape
                     )
                     .padding(horizontal = 8.dp, vertical = 6.dp),
-                text = selectedSet.value?.name ?: "no set selected",
+                text = selectedSet.value?.name ?: "none selected",
                 style = LocalTheme.current.styles.category
+            )
+            Icon(
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .size(24.dp)
+                    .scalingClickable {
+                        selectedSet.value = null
+                        model.changeSetOf(experiment.data.uid, null)
+                    },
+                imageVector = Icons.Outlined.Close,
+                tint = LocalTheme.current.colors.disabled,
+                contentDescription = null
             )
         }
 

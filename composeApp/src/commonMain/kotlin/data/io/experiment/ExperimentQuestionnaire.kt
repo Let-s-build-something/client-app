@@ -8,7 +8,7 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 @Entity(tableName = AppRoomDatabase.TABLE_EXPERIMENT_SET)
-data class ExperimentSet(
+data class ExperimentQuestionnaire(
     @PrimaryKey
     val uid: String = Uuid.random().toString(),
     val name: String,

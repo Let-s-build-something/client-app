@@ -21,14 +21,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import augmy.interactive.shared.ext.scalingClickable
 import augmy.interactive.shared.ui.theme.LocalTheme
-import data.io.experiment.ExperimentSet
+import data.io.experiment.ExperimentQuestionnaire
 
 @Composable
 fun ExperimentSet(
     modifier: Modifier = Modifier,
-    set: ExperimentSet,
+    set: ExperimentQuestionnaire,
     size: Int,
-    setPick: MutableState<ExperimentSet?>?
+    setPick: MutableState<ExperimentQuestionnaire?>?
 ) {
     Row(
         modifier = modifier

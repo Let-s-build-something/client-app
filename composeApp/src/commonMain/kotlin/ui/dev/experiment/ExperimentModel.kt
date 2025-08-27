@@ -2,7 +2,7 @@ package ui.dev.experiment
 
 import androidx.lifecycle.viewModelScope
 import data.io.experiment.ExperimentIO
-import data.io.experiment.ExperimentSet
+import data.io.experiment.ExperimentQuestionnaire
 import data.io.experiment.ExperimentSetValue
 import data.io.experiment.FullExperiment
 import data.sensor.SensorEventListener
@@ -27,7 +27,7 @@ class ExperimentModel(
     private val repository: ExperimentRepository,
     private val dataManager: DeveloperConsoleDataManager
 ): DeveloperConsoleModel(dataManager = dataManager, repository = repository) {
-    private val _sets = MutableStateFlow(listOf<ExperimentSet>())
+    private val _sets = MutableStateFlow(listOf<ExperimentQuestionnaire>())
 
     val experiments = dataManager.experiments.asStateFlow()
     val activeExperiments = dataManager.activeExperiments.asStateFlow()
@@ -39,7 +39,7 @@ class ExperimentModel(
             getExperiments()
 
             if (dataManager.experiments.value.isEmpty() && _sets.value.isEmpty()) {
-                val newSet = ExperimentSet(
+                val newSet = ExperimentQuestionnaire(
                     name = "Sample set",
                     values = listOf(
                         ExperimentSetValue("Test value"),
@@ -106,7 +106,7 @@ class ExperimentModel(
         }
     }
 
-    fun createExperiment(experiment: ExperimentIO, set: ExperimentSet? = null) {
+    fun createExperiment(experiment: ExperimentIO, set: ExperimentQuestionnaire? = null) {
         viewModelScope.launch {
             repository.insertExperiment(experiment)
             dataManager.experiments.update { prev ->
@@ -120,7 +120,7 @@ class ExperimentModel(
         }
     }
 
-    fun createSet(set: ExperimentSet) {
+    fun createSet(set: ExperimentQuestionnaire) {
         viewModelScope.launch {
             repository.insertSet(set)
             _sets.update {
@@ -129,7 +129,7 @@ class ExperimentModel(
         }
     }
 
-    fun updateSet(set: ExperimentSet) {
+    fun updateSet(set: ExperimentQuestionnaire) {
         viewModelScope.launch {
             repository.insertSet(set)
             _sets.update {
@@ -226,22 +226,23 @@ class ExperimentModel(
         }
     }
 
-    fun changeSetOf(experimentUid: String, setUid: String) {
+    fun changeSetOf(experimentUid: String, setUid: String?) {
         viewModelScope.launch {
+            val setUids = if (setUid == null) listOf() else listOf(setUid)
             dataManager.experiments.update { prev ->
                 prev.map { experiment ->
                     if (experiment.data.uid == experimentUid) {
                         experiment.copy(
-                            data = experiment.data.copy(setUids = listOf(setUid)),
-                            sets = listOf(sets.value.first { it.uid == setUid })
+                            data = experiment.data.copy(setUids = setUids),
+                            sets = sets.value.firstOrNull { it.uid == setUid }?.let { listOf(it) }.orEmpty()
                         )
                     } else experiment
                 }
             }
             repository.insertExperiment(
-                dataManager.experiments.value.first { it.data.uid == experimentUid }.data.copy(
-                    setUids = listOf(setUid)
-                )
+                dataManager.experiments.value.first {
+                    it.data.uid == experimentUid
+                }.data.copy(setUids = setUids)
             )
         }
     }

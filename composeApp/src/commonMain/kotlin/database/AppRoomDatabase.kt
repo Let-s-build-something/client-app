@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
 import data.io.base.paging.MatrixPagingMetaIO
 import data.io.base.paging.PagingMetaIO
 import data.io.experiment.ExperimentIO
-import data.io.experiment.ExperimentSet
+import data.io.experiment.ExperimentQuestionnaire
 import data.io.matrix.room.ConversationRoomIO
 import data.io.matrix.room.event.ConversationRoomMember
 import data.io.social.network.conversation.ConversationRole
@@ -49,7 +49,7 @@ import ui.conversation.components.experimental.gravity.GravityValue
         MediaIO::class,
         ExperimentIO::class,
         ConversationRole::class,
-        ExperimentSet::class,
+        ExperimentQuestionnaire::class,
         ConversationRoomIO::class
     ],
     version = 88,
