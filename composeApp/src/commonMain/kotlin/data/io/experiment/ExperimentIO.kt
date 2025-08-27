@@ -11,6 +11,7 @@ import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.utils.DateUtils
+import data.sensor.HZ_SPEED_NORMAL
 import database.AppRoomDatabase
 import kotlinx.serialization.Serializable
 import kotlin.uuid.ExperimentalUuidApi
@@ -38,9 +39,25 @@ data class ExperimentIO(
 
     val setUids: List<String> = listOf(),
 
+    @ColumnInfo("observe_chats")
+    val observeChats: Boolean = false,
+
+    @ColumnInfo("active_sensors")
+    val activeSensors: List<ActiveSensor> = listOf(),
+
     val displayFrequency: DisplayFrequency = DisplayFrequency.BeginEnd,
     val choiceBehavior: ChoiceBehavior = ChoiceBehavior.SingleChoice
 ) {
+
+    @Serializable
+    data class ActiveSensor(
+        val uid: String,
+        val hz: Int = HZ_SPEED_NORMAL
+    ) {
+        override fun toString(): String {
+            return "{ uid: $uid, hz: $hz }"
+        }
+    }
 
     @Serializable
     sealed class DisplayFrequency {
@@ -66,4 +83,19 @@ data class ExperimentIO(
                 append(" (${uid})")
             }
         }
+
+    override fun toString(): String {
+        return "{" +
+                "name: $name" +
+                ", owner: $owner" +
+                ", uid: $uid" +
+                ", createdAt: $createdAt" +
+                ", observeChats: $observeChats" +
+                ", activateUntil: $activateUntil" +
+                ", setUids: $setUids" +
+                ", activeSensors: $activeSensors" +
+                ", displayFrequency: $displayFrequency" +
+                ", choiceBehavior: $choiceBehavior" +
+                "}"
+    }
 }

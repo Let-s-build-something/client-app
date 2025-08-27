@@ -1,7 +1,5 @@
 package ui.dev
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -13,26 +11,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Deselect
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.SelectAll
-import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
@@ -45,10 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -59,19 +49,18 @@ import augmy.interactive.shared.ext.scalingClickable
 import augmy.interactive.shared.ui.components.BrandHeaderButton
 import augmy.interactive.shared.ui.components.ContrastHeaderButton
 import augmy.interactive.shared.ui.components.ErrorHeaderButton
-import augmy.interactive.shared.ui.components.LoadingHeaderButton
 import augmy.interactive.shared.ui.components.MultiChoiceSwitchMinimalistic
 import augmy.interactive.shared.ui.components.ProgressPressableContainer
 import augmy.interactive.shared.ui.components.dialog.AlertDialog
 import augmy.interactive.shared.ui.components.dialog.ButtonState
-import augmy.interactive.shared.ui.components.input.CustomTextField
 import augmy.interactive.shared.ui.components.rememberMultiChoiceState
 import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.ui.theme.SharedColors
 import augmy.interactive.shared.utils.DateUtils.formatAs
 import components.ScrollBarProgressIndicator
-import data.io.base.BaseResponse
-import data.sensor.SensorDelay
+import data.sensor.HZ_SPEED_FAST
+import data.sensor.HZ_SPEED_NORMAL
+import data.sensor.HZ_SPEED_SLOW
 import data.sensor.SensorEventListener
 import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import kotlinx.datetime.LocalDateTime
@@ -88,71 +77,8 @@ private fun DashboardSection(model: DeveloperConsoleModel) {
     val availableSensors = model.availableSensors.collectAsState()
     val activeSensors = model.activeSensors.collectAsState()
 
-    val showSensorDialog = remember {
-        mutableStateOf<SensorEventListener?>(null)
-    }
-
-    showSensorDialog.value?.let { sensor ->
-        val data = sensor.data.collectAsState()
-
-        AlertDialog(
-            title = sensor.name + if (!sensor.description.isNullOrBlank()) " (${sensor.description})" else "",
-            dismissButtonState = ButtonState(text = stringResource(Res.string.button_dismiss)),
-            icon = Icons.Outlined.History,
-            onDismissRequest = {
-                showSensorDialog.value = null
-            },
-            intrinsicContent = false,
-            additionalContent = {
-                LazyColumn(modifier = Modifier.animateContentSize()) {
-                    items(items = data.value) { record ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .animateItem(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            record.values?.let {
-                                SelectionContainer {
-                                    Text(
-                                        text = it.joinToString(separator = ", "),
-                                        style = LocalTheme.current.styles.category
-                                    )
-                                }
-                            }
-                            record.uiValues?.let {
-                                val text = buildAnnotatedString {
-                                    it.forEach { window ->
-                                        withStyle(LocalTheme.current.styles.category.toSpanStyle()) {
-                                            append("\n${window.key}")
-                                        }
-                                        append(": ${window.value}")
-                                    }
-                                }
-
-                                SelectionContainer {
-                                    Text(
-                                        text = text,
-                                        style = LocalTheme.current.styles.regular
-                                    )
-                                }
-                            }
-                            SelectionContainer {
-                                Text(
-                                    text = "Timestamp: ${LocalDateTime.parse(record.timestamp).formatAs("HH:mm:ss")}",
-                                    style = LocalTheme.current.styles.regular
-                                )
-                            }
-
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = LocalTheme.current.colors.disabled
-                            )
-                        }
-                    }
-                }
-            }
-        )
+    LaunchedEffect(Unit) {
+        model.requestAvailableSensors(null)
     }
 
     LazyColumn(
@@ -162,8 +88,6 @@ private fun DashboardSection(model: DeveloperConsoleModel) {
     ) {
         item {
             Column {
-                StreamingSection(model)
-
                 Text(
                     modifier = Modifier
                         .padding(top = 16.dp)
@@ -253,318 +177,225 @@ private fun DashboardSection(model: DeveloperConsoleModel) {
                 )
             }
         }
-        items(
-            items = availableSensors.value,
-            key = { it.uid }
-        ) { sensor ->
-            val selectedDelayIndex = rememberSaveable(sensor.uid) {
-                mutableStateOf(sensor.delay.ordinal)
-            }
-
-            val data = sensor.data.collectAsState()
-
-            Column {
-                Row(
-                    modifier = Modifier.animateItem(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    ProgressPressableContainer(
-                        modifier = Modifier
-                            .padding(end = 16.dp)
-                            .requiredSize(36.dp),
-                        onFinish = {
-                            sensor.data.value = listOf()
-                        },
-                        trackColor = LocalTheme.current.colors.disabled,
-                        progressColor = SharedColors.RED_ERROR
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(32.dp),
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = null,
-                            tint = SharedColors.RED_ERROR
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .scalingClickable(scaleInto = .95f) {
-                                showSensorDialog.value = sensor
-                            },
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(start = 8.dp),
-                            text = sensor.name + if (!sensor.description.isNullOrBlank()) " (${sensor.description})" else "",
-                            style = LocalTheme.current.styles.category
-                        )
-                        sensor.maximumRange?.let {
-                            Text(
-                                modifier = Modifier.padding(start = 12.dp),
-                                text = "Maximum range: $it",
-                                style = LocalTheme.current.styles.regular
-                            )
-                        }
-                        sensor.resolution?.let {
-                            Text(
-                                modifier = Modifier.padding(start = 12.dp),
-                                text = "Resolution: $it",
-                                style = LocalTheme.current.styles.regular
-                            )
-                        }
-                        Text(
-                            modifier = Modifier.padding(start = 12.dp),
-                            text = "Collected: ${data.value.size}",
-                            style = LocalTheme.current.styles.regular
-                        )
-                        Text(
-                            modifier = Modifier.padding(start = 12.dp),
-                            text = "Last record: ${data.value.firstOrNull()?.let { value ->
-                                value.values?.toList() ?: value.uiValues
-                            }}",
-                            style = LocalTheme.current.styles.regular
-                        )
-
-                        Row(
-                            modifier = Modifier
-                                .padding(bottom = 6.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Speed: ",
-                                style = LocalTheme.current.styles.regular
-                            )
-                            MultiChoiceSwitchMinimalistic(
-                                state = rememberMultiChoiceState(
-                                    selectedTabIndex = selectedDelayIndex,
-                                    items = SensorDelay.entries.map { it.name }.toMutableList()
-                                ),
-                                onClick = { index ->
-                                    selectedDelayIndex.value = index
-                                    model.changeSensorDelay(sensor, SensorDelay.entries[index])
-                                },
-                                onItemCreation = { _, index, _ ->
-                                    Text(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        text = SensorDelay.entries[index].name,
-                                        style = LocalTheme.current.styles.category.copy(
-                                            textAlign = TextAlign.Center
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    }
-
-                    Switch(
-                        modifier = Modifier
-                            .align(Alignment.CenterVertically)
-                            .padding(end = 16.dp),
-                        colors = LocalTheme.current.styles.switchColorsDefault,
-                        onCheckedChange = {
-                            if (activeSensors.value.contains(sensor.uid)) {
-                                model.unRegisterSensor(sensor)
-                            }else model.registerSensor(
-                                sensor = sensor,
-                                delay = SensorDelay.entries[selectedDelayIndex.value]
-                            )
-                        },
-                        checked = activeSensors.value.contains(sensor.uid)
-                    )
-                }
-
-                HorizontalDivider(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = LocalTheme.current.colors.disabled
-                )
-            }
-        }
+        sensorList(
+            availableSensors = availableSensors.value,
+            activeSensors = activeSensors.value,
+            model = model
+        )
         item {
             Spacer(Modifier.height(120.dp))
         }
     }
 }
 
-@Composable
-private fun StreamingSection(model: DeveloperConsoleModel) {
-    val streamingUrlResponse = model.streamingUrlResponse.collectAsState()
-
-    val streamingUrlState = remember(model) {
-        TextFieldState(initialText = model.streamingUrl)
-    }
-
-    val filePicker = rememberFileSaverLauncher(
-        onResult = { filePicker ->
-            model.setUpLocalStream(filePicker)
-        }
-    )
-
-    Text(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color = LocalTheme.current.colors.appbarBackground)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        text = "Data streaming",
-        style = LocalTheme.current.styles.subheading.copy(
-            color = LocalTheme.current.colors.appbarContent
+fun LazyListScope.sensorList(
+    availableSensors: List<SensorEventListener>,
+    activeSensors: List<String>,
+    model: DeveloperConsoleModel,
+    onActivation: (SensorEventListener, Int) -> Unit = { sensor, hz ->
+        if (activeSensors.contains(sensor.uid)) {
+            model.unregisterSensor(sensor)
+        }else model.registerSensor(
+            sensor = sensor,
+            hz = hz
         )
-    )
-
-    Row(
-        modifier = Modifier.padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AnimatedVisibility(
-            modifier = Modifier.weight(1f),
-            visible = streamingUrlResponse.value !is BaseResponse.Success
-        ) {
-            CustomTextField(
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Done
-                ),
-                onKeyboardAction = {
-                    model.setupRemoteStream(streamingUrlState.text)
-                },
-                backgroundColor = LocalTheme.current.colors.backgroundLight,
-                hint = "Server url",
-                state = streamingUrlState,
-                shape = LocalTheme.current.shapes.componentShape,
-                errorText = (streamingUrlResponse.value as? BaseResponse.Error)?.message
+    }
+) {
+    items(
+        items = availableSensors,
+        key = { it.uid }
+    ) { sensor ->
+        val delayItems = mutableListOf(
+            HZ_SPEED_SLOW.toString(),
+            HZ_SPEED_NORMAL.toString(),
+            HZ_SPEED_FAST.toString()
+        )
+        val selectedDelayIndex = rememberSaveable(sensor.uid) {
+            mutableStateOf(
+                delayItems.indexOf(sensor.hzSpeed.toString()).takeIf { it != -1 } ?: 1
             )
         }
-        Crossfade(targetState = streamingUrlResponse.value) { response ->
-            when(response) {
-                is BaseResponse.Success -> {
-                    ContrastHeaderButton(
-                        text = "Stop remote stream",
-                        endImageVector = Icons.Outlined.Stop,
-                        contentColor = Color.White,
-                        containerColor = SharedColors.RED_ERROR,
-                        onClick = {
-                            model.stopRemoteStream()
-                        }
-                    )
-                }
-                else -> {
-                    LoadingHeaderButton(
-                        text = "Stream",
-                        isLoading = streamingUrlResponse.value is BaseResponse.Loading,
-                        isEnabled = streamingUrlResponse.value !is BaseResponse.Loading,
-                        endImageVector = Icons.Outlined.Check,
-                        onClick = {
-                            model.setupRemoteStream(streamingUrlState.text)
-                        }
-                    )
-                }
-            }
+        val showSensorDialog = remember {
+            mutableStateOf<SensorEventListener?>(null)
         }
-        AnimatedVisibility(streamingUrlResponse.value is BaseResponse.Success) {
-            val selectedDelayIndex = rememberSaveable {
-                mutableStateOf(model.remoteStreamDelay.ordinal)
-            }
 
+        showSensorDialog.value?.let { sensor ->
+            val data = sensor.data.collectAsState()
+
+            AlertDialog(
+                title = sensor.name + if (!sensor.description.isNullOrBlank()) " (${sensor.description})" else "",
+                dismissButtonState = ButtonState(text = stringResource(Res.string.button_dismiss)),
+                icon = Icons.Outlined.History,
+                onDismissRequest = {
+                    showSensorDialog.value = null
+                },
+                intrinsicContent = false,
+                additionalContent = {
+                    LazyColumn(modifier = Modifier.animateContentSize()) {
+                        items(items = data.value) { record ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItem(),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                record.values?.let {
+                                    SelectionContainer {
+                                        Text(
+                                            text = it.joinToString(separator = ", "),
+                                            style = LocalTheme.current.styles.category
+                                        )
+                                    }
+                                }
+                                record.uiValues?.let {
+                                    val text = buildAnnotatedString {
+                                        it.forEach { window ->
+                                            withStyle(LocalTheme.current.styles.category.toSpanStyle()) {
+                                                append("\n${window.key}")
+                                            }
+                                            append(": ${window.value}")
+                                        }
+                                    }
+
+                                    SelectionContainer {
+                                        Text(
+                                            text = text,
+                                            style = LocalTheme.current.styles.regular
+                                        )
+                                    }
+                                }
+                                SelectionContainer {
+                                    Text(
+                                        text = "Timestamp: ${LocalDateTime.parse(record.timestamp).formatAs("HH:mm:ss")}",
+                                        style = LocalTheme.current.styles.regular
+                                    )
+                                }
+
+                                HorizontalDivider(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = LocalTheme.current.colors.disabled
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+        val data = sensor.data.collectAsState()
+
+        Column {
             Row(
-                modifier = Modifier.padding(start = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.animateItem(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Upload by: ",
-                    style = LocalTheme.current.styles.regular
-                )
-                MultiChoiceSwitchMinimalistic(
-                    modifier = Modifier.padding(start = 6.dp),
-                    state = rememberMultiChoiceState(
-                        selectedTabIndex = selectedDelayIndex,
-                        items = SensorDelay.entries.map { it.name }.toMutableList()
-                    ),
-                    onClick = { index ->
-                        selectedDelayIndex.value = index
-                        model.remoteStreamDelay =  SensorDelay.entries[index]
+                ProgressPressableContainer(
+                    modifier = Modifier
+                        .padding(end = 16.dp)
+                        .requiredSize(36.dp),
+                    onFinish = {
+                        sensor.data.value = listOf()
                     },
-                    onItemCreation = { _, index, _ ->
+                    trackColor = LocalTheme.current.colors.disabled,
+                    progressColor = SharedColors.RED_ERROR
+                ) {
+                    Icon(
+                        modifier = Modifier.size(32.dp),
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = null,
+                        tint = SharedColors.RED_ERROR
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .scalingClickable(scaleInto = .95f) {
+                            showSensorDialog.value = sensor
+                        },
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        modifier = Modifier.padding(start = 8.dp),
+                        text = sensor.name + if (!sensor.description.isNullOrBlank()) " (${sensor.description})" else "",
+                        style = LocalTheme.current.styles.category
+                    )
+                    sensor.maximumRange?.let {
                         Text(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp),
-                            text = when(SensorDelay.entries[index]) {
-                                SensorDelay.Slow -> 50
-                                SensorDelay.Normal -> 20
-                                SensorDelay.Fast -> 1
-                            }.toString(),
-                            style = LocalTheme.current.styles.category.copy(
-                                textAlign = TextAlign.Center
-                            )
+                            modifier = Modifier.padding(start = 12.dp),
+                            text = "Maximum range: $it",
+                            style = LocalTheme.current.styles.regular
                         )
                     }
-                )
-            }
-        }
-    }
-
-    val localRunning = model.isLocalStreamRunning.collectAsState()
-    Crossfade(
-        modifier = Modifier.padding(top = 8.dp),
-        targetState = localRunning.value
-    ) {
-        if (it) {
-            ContrastHeaderButton(
-                text = "Stop local stream",
-                endImageVector = Icons.Outlined.Stop,
-                contentColor = Color.White,
-                containerColor = SharedColors.RED_ERROR,
-                onClick = {
-                    model.stopLocalStream()
-                }
-            )
-        }else {
-            ContrastHeaderButton(
-                text = "Stream locally",
-                endImageVector = Icons.Outlined.Folder,
-                contentColor = LocalTheme.current.colors.tetrial,
-                containerColor = LocalTheme.current.colors.brandMainDark,
-                onClick = {
-                    filePicker.launch(extension = "txt", suggestedName = "stream-sensory-augmy")
-                }
-            )
-        }
-    }
-
-    val streamLines = model.streamLines.collectAsState()
-    AnimatedVisibility(
-        modifier = Modifier
-            .padding(top = 8.dp)
-            .fillMaxWidth(),
-        visible = streamLines.value.isNotEmpty()
-    ) {
-        val state = rememberLazyListState()
-
-        LaunchedEffect(streamLines.value.size) {
-            state.animateScrollToItem(0)
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .requiredHeight(50.dp)
-                .padding(horizontal = 8.dp),
-            state = state,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            reverseLayout = true
-        ) {
-            items(items = streamLines.value) { line ->
-                Text(
-                    modifier = Modifier.animateItem(),
-                    text = line,
-                    style = LocalTheme.current.styles.regular.copy(
-                        color = LocalTheme.current.colors.disabled
+                    sensor.resolution?.let {
+                        Text(
+                            modifier = Modifier.padding(start = 12.dp),
+                            text = "Resolution: $it",
+                            style = LocalTheme.current.styles.regular
+                        )
+                    }
+                    Text(
+                        modifier = Modifier.padding(start = 12.dp),
+                        text = "Collected: ${data.value.size}",
+                        style = LocalTheme.current.styles.regular
                     )
+                    Text(
+                        modifier = Modifier.padding(start = 12.dp),
+                        text = "Last record: ${data.value.firstOrNull()?.let { value ->
+                            value.values?.toList() ?: value.uiValues
+                        }}",
+                        style = LocalTheme.current.styles.regular
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .padding(bottom = 6.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Speed: ",
+                            style = LocalTheme.current.styles.regular
+                        )
+                        MultiChoiceSwitchMinimalistic(
+                            state = rememberMultiChoiceState(
+                                selectedTabIndex = selectedDelayIndex,
+                                items = delayItems
+                            ),
+                            onClick = { index ->
+                                selectedDelayIndex.value = index
+                                model.changeSensorDelay(sensor, delayItems[index].toIntOrNull() ?: HZ_SPEED_NORMAL)
+                            },
+                            onItemCreation = { _, index, _ ->
+                                Text(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    text = delayItems[index],
+                                    style = LocalTheme.current.styles.category.copy(
+                                        textAlign = TextAlign.Center
+                                    )
+                                )
+                            }
+                        )
+                    }
+                }
+
+                Switch(
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .padding(end = 16.dp),
+                    colors = LocalTheme.current.styles.switchColorsDefault,
+                    onCheckedChange = {
+                        onActivation(sensor, delayItems[selectedDelayIndex.value].toIntOrNull() ?: HZ_SPEED_NORMAL)
+                    },
+                    checked = activeSensors.contains(sensor.uid)
                 )
             }
+
+            HorizontalDivider(
+                modifier = Modifier.fillMaxWidth(),
+                color = LocalTheme.current.colors.disabled
+            )
         }
     }
 }

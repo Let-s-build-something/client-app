@@ -2,18 +2,21 @@ package ui.dev.experiment
 
 import androidx.lifecycle.viewModelScope
 import data.io.experiment.ExperimentIO
-import data.io.experiment.ExperimentSet
+import data.io.experiment.ExperimentQuestionnaire
 import data.io.experiment.ExperimentSetValue
 import data.io.experiment.FullExperiment
-import data.shared.SharedModel
+import data.sensor.SensorEventListener
 import korlibs.datastructure.iterators.fastIterateRemove
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import ui.dev.DeveloperConsoleDataManager
+import ui.dev.DeveloperConsoleModel
 
 internal val experimentModule = module {
     factory { ExperimentRepository(get(), get()) }
@@ -23,8 +26,8 @@ internal val experimentModule = module {
 class ExperimentModel(
     private val repository: ExperimentRepository,
     private val dataManager: DeveloperConsoleDataManager
-): SharedModel() {
-    private val _sets = MutableStateFlow(listOf<ExperimentSet>())
+): DeveloperConsoleModel(dataManager = dataManager, repository = repository) {
+    private val _sets = MutableStateFlow(listOf<ExperimentQuestionnaire>())
 
     val experiments = dataManager.experiments.asStateFlow()
     val activeExperiments = dataManager.activeExperiments.asStateFlow()
@@ -36,7 +39,7 @@ class ExperimentModel(
             getExperiments()
 
             if (dataManager.experiments.value.isEmpty() && _sets.value.isEmpty()) {
-                val newSet = ExperimentSet(
+                val newSet = ExperimentQuestionnaire(
                     name = "Sample set",
                     values = listOf(
                         ExperimentSetValue("Test value"),
@@ -61,6 +64,16 @@ class ExperimentModel(
             dataManager.activeExperiments.update { prev ->
                 if (play) prev.plus(experiment.data.uid) else prev.minus(experiment.data.uid)
             }
+
+            experiment.data.activeSensors.forEach { activeSensor ->
+                availableSensors.value.firstOrNull { it.uid == activeSensor.uid }?.let { sensor ->
+                    if (play) {
+                        registerSensor(sensor, activeSensor.hz)
+                    }else unregisterSensor(sensor)
+                }
+            }
+
+            observeChats(experiment.data.observeChats, experiment.data.uid)
 
             val starting = play && (experiment.data.displayFrequency is ExperimentIO.DisplayFrequency.BeginEnd
                     || experiment.data.displayFrequency is ExperimentIO.DisplayFrequency.Permanent)
@@ -93,7 +106,7 @@ class ExperimentModel(
         }
     }
 
-    fun createExperiment(experiment: ExperimentIO, set: ExperimentSet? = null) {
+    fun createExperiment(experiment: ExperimentIO, set: ExperimentQuestionnaire? = null) {
         viewModelScope.launch {
             repository.insertExperiment(experiment)
             dataManager.experiments.update { prev ->
@@ -107,7 +120,7 @@ class ExperimentModel(
         }
     }
 
-    fun createSet(set: ExperimentSet) {
+    fun createSet(set: ExperimentQuestionnaire) {
         viewModelScope.launch {
             repository.insertSet(set)
             _sets.update {
@@ -116,12 +129,87 @@ class ExperimentModel(
         }
     }
 
-    fun updateSet(set: ExperimentSet) {
+    fun updateSet(set: ExperimentQuestionnaire) {
         viewModelScope.launch {
             repository.insertSet(set)
             _sets.update {
                 it.map { oldSet ->
                     if (oldSet.uid == set.uid) set else oldSet
+                }
+            }
+        }
+    }
+
+    fun addActiveSensors(
+        uid: String,
+        sensor: SensorEventListener,
+        hz: Int
+    ) {
+        viewModelScope.launch {
+            if (activeExperiments.value.contains(uid)) {
+                registerSensor(sensor)
+            }
+
+            withContext(Dispatchers.Default) {
+                dataManager.experiments.update { prev ->
+                    prev.map { experiment ->
+                        if (experiment.data.uid == uid) {
+                            experiment.copy(
+                                data = experiment.data.copy(
+                                    activeSensors = experiment.data.activeSensors.plus(
+                                        ExperimentIO.ActiveSensor(
+                                            uid = sensor.uid,
+                                            hz = hz
+                                        )
+                                    ).distinctBy { it.uid }
+                                )
+                            ).also {
+                                repository.insertExperiment(it.data)
+                            }
+                        } else experiment
+                    }
+                }
+            }
+        }
+    }
+
+    fun updateChatObservation(uid: String, observe: Boolean) {
+        viewModelScope.launch {
+            withContext(Dispatchers.Default) {
+                dataManager.experiments.update { prev ->
+                    prev.map { experiment ->
+                        if (experiment.data.uid == uid) {
+                            experiment.copy(data = experiment.data.copy(observeChats = observe)).also {
+                                repository.insertExperiment(it.data)
+                            }
+                        } else experiment
+                    }
+                }
+            }
+        }
+    }
+
+    fun removeActiveSensors(uid: String, sensor: SensorEventListener) {
+        viewModelScope.launch {
+            if (activeExperiments.value.contains(uid)) {
+                unregisterSensor(sensor)
+            }
+
+            withContext(Dispatchers.Default) {
+                dataManager.experiments.update { prev ->
+                    prev.map { experiment ->
+                        if (experiment.data.uid == uid) {
+                            experiment.copy(
+                                data = experiment.data.copy(
+                                    activeSensors = experiment.data.activeSensors.filter {
+                                        it.uid != sensor.uid
+                                    }
+                                )
+                            ).also {
+                                repository.insertExperiment(it.data)
+                            }
+                        } else experiment
+                    }
                 }
             }
         }
@@ -138,22 +226,23 @@ class ExperimentModel(
         }
     }
 
-    fun changeSetOf(experimentUid: String, setUid: String) {
+    fun changeSetOf(experimentUid: String, setUid: String?) {
         viewModelScope.launch {
+            val setUids = if (setUid == null) listOf() else listOf(setUid)
             dataManager.experiments.update { prev ->
                 prev.map { experiment ->
                     if (experiment.data.uid == experimentUid) {
                         experiment.copy(
-                            data = experiment.data.copy(setUids = listOf(setUid)),
-                            sets = listOf(sets.value.first { it.uid == setUid })
+                            data = experiment.data.copy(setUids = setUids),
+                            sets = sets.value.firstOrNull { it.uid == setUid }?.let { listOf(it) }.orEmpty()
                         )
                     } else experiment
                 }
             }
             repository.insertExperiment(
-                dataManager.experiments.value.first { it.data.uid == experimentUid }.data.copy(
-                    setUids = listOf(setUid)
-                )
+                dataManager.experiments.value.first {
+                    it.data.uid == experimentUid
+                }.data.copy(setUids = setUids)
             )
         }
     }

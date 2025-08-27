@@ -49,11 +49,10 @@ import augmy.interactive.shared.ui.components.input.CustomTextField
 import augmy.interactive.shared.ui.components.input.DELAY_BETWEEN_TYPING_SHORT
 import augmy.interactive.shared.ui.theme.LocalTheme
 import augmy.interactive.shared.ui.theme.SharedColors
-import data.io.experiment.ExperimentSet
+import data.io.experiment.ExperimentQuestionnaire
 import data.io.experiment.ExperimentSetValue
 import data.io.experiment.FullExperiment
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,20 +61,27 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 @Composable
-fun SetListDialog(
+fun QuestionnaireListDialog(
     model: ExperimentModel,
     experiment: FullExperiment,
-    selectedSet: ExperimentSet?,
-    onConfirm: (ExperimentSet) -> Unit,
+    selectedSet: ExperimentQuestionnaire?,
+    onConfirm: (ExperimentQuestionnaire) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     val cancellableScope = rememberCoroutineScope()
     val setPick = remember(experiment.data.uid) {
         mutableStateOf(selectedSet)
     }
+    val sets = model.sets.collectAsState()
+
+    LaunchedEffect(sets.value) {
+        if (setPick.value != null) setPick.value = sets.value.find {
+            it.uid == setPick.value?.uid
+        }
+    }
 
     AlertDialog(
-        title = "Select set of values",
+        title = "Select a questionnaire",
         intrinsicContent = false,
         additionalContent = {
             AnimatedVisibility(setPick.value != null) {
@@ -218,13 +224,9 @@ fun SetListDialog(
 
                                 LaunchedEffect(valueState.text) {
                                     if (valueState.text != value?.value) {
-                                        cancellableScope.coroutineContext.cancelChildren()
-                                        cancellableScope.launch {
-                                            value?.copy(value = valueState.text.toString())?.let { newValue ->
-                                                values[index] = newValue
-                                                delay(DELAY_BETWEEN_TYPING_SHORT)
-                                                model.updateSet(set.copy(values = values))
-                                            }
+                                        value?.copy(value = valueState.text.toString())?.let { newValue ->
+                                            values[index] = newValue
+                                            model.updateSet(set.copy(values = values))
                                         }
                                     }
                                 }
@@ -291,10 +293,10 @@ fun SetListDialog(
                             .padding(horizontal = 16.dp)
                             .padding(bottom = 6.dp)
                             .fillMaxWidth(),
-                        text = "New set",
+                        text = "New questionnaire",
                         endImageVector = Icons.Outlined.Add
                     ) {
-                        val newSet = ExperimentSet(name = "Set ${sets.value.size}")
+                        val newSet = ExperimentQuestionnaire(name = "Questionnaire ${sets.value.size}")
                         model.createSet(newSet)
                         setPick.value = newSet
                     }
@@ -317,7 +319,6 @@ fun SetListDialog(
             }
         },
         confirmButtonState = ButtonState(
-            enabled = setPick.value != null && setPick.value?.uid != selectedSet?.uid,
             text = "Confirm",
             onClick = {
                 setPick.value?.let { onConfirm(it) }
