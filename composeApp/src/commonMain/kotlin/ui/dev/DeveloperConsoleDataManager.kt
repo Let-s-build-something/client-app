@@ -2,6 +2,7 @@ package ui.dev
 
 import data.io.base.BaseResponse
 import data.io.experiment.FullExperiment
+import io.github.vinceglb.filekit.PlatformFile
 import korlibs.logger.Logger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -48,4 +49,5 @@ class DeveloperConsoleDataManager {
     var streamingUrl = ""
     var streamingDirectory = ""
     var sink: BufferedSink? = null
+    var sinkPlatformFile: PlatformFile? = null
 }

@@ -17,6 +17,8 @@ import data.sensor.HZ_SPEED_SLOW
 import data.sensor.SensorEvent
 import data.sensor.SensorEventListener
 import data.sensor.getAllSensors
+import data.sensor.stopBackgroundStreamDevConsole
+import data.sensor.streamDevConsoleInBackground
 import data.shared.GeneralObserver
 import data.shared.SharedModel
 import io.github.vinceglb.filekit.PlatformFile
@@ -72,8 +74,12 @@ open class DeveloperConsoleModel(
     private val repository: DeveloperConsoleRepository
 ): SharedModel() {
 
+    companion object {
+        const val WRITE_SENSORS_INTERVAL_MS = 500
+    }
+
     private val _availableSensors = MutableStateFlow(listOf<SensorEventListener>())
-    private val json by lazy {
+    private val sensorStreamJson by lazy {
         Json {
             prettyPrint = false
             explicitNulls = false
@@ -385,9 +391,9 @@ open class DeveloperConsoleModel(
         val sensorName = sensor.name
 
         val values = event.values?.toList()?.let {
-            json.encodeToJsonElement(it)
+            sensorStreamJson.encodeToJsonElement(it)
         } ?: event.uiValues?.let {
-            json.encodeToJsonElement(it)
+            sensorStreamJson.encodeToJsonElement(it)
         }
 
         if (values != null) {
@@ -396,12 +402,13 @@ open class DeveloperConsoleModel(
                 put("timestamp", event.timestamp)
                 put("values", values)
             }
-            streamNewLine(json.encodeToString(jsonLine))
+            streamNewLine(sensorStreamJson.encodeToString(jsonLine))
         }
     }
 
     private fun streamNewLine(content: String) {
-        if (isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success) {
+        val canStream = isLocalStreamRunning.value || dataManager.streamingUrlResponse.value is BaseResponse.Success
+        if (canStream) {
             dataManager.streamChannel.trySend(content)
             dataManager.streamLines.update {
                 it.take(20).toMutableList().apply {
@@ -416,7 +423,7 @@ open class DeveloperConsoleModel(
             put("state", state.type.toString())
             put("conversationId", state.conversationId.toSha256())
         }
-        val newLine = json.encodeToString(jsonLine)
+        val newLine = sensorStreamJson.encodeToString(jsonLine)
         streamNewLine(newLine)
         return newLine
     }
@@ -429,7 +436,7 @@ open class DeveloperConsoleModel(
             if (reaction.sentAt != null) put("sentAt", reaction.sentAt.toString())
             put("type", reaction.type.toString())
         }
-        val newLine = json.encodeToString(jsonLine)
+        val newLine = sensorStreamJson.encodeToString(jsonLine)
 
         streamNewLine(newLine)
         return newLine
@@ -439,19 +446,19 @@ open class DeveloperConsoleModel(
         val jsonLine = buildJsonObject {
             put("content", message.data.content)
             put("author", message.data.authorPublicId?.toSha256())
-            put("timings", json.encodeToJsonElement(message.data.timings))
+            put("timings", sensorStreamJson.encodeToJsonElement(message.data.timings))
             put("sentAt", message.data.sentAt?.format(LocalDateTime.Formats.ISO))
             if (message.data.edited) put("edited", message.data.edited)
             if (message.reactions.isNotEmpty()) {
                 put(
                     "reactions",
                     message.reactions.map { it.authorPublicId?.toSha256() to it.content }.let {
-                        json.encodeToJsonElement(it)
+                        sensorStreamJson.encodeToJsonElement(it)
                     }
                 )
             }
         }
-        val newLine = json.encodeToString(jsonLine)
+        val newLine = sensorStreamJson.encodeToString(jsonLine)
 
         streamNewLine(newLine)
         return newLine
@@ -463,7 +470,7 @@ open class DeveloperConsoleModel(
         customValue: String?
     ) {
         val values = values.map { it.value }.let {
-            json.encodeToJsonElement(it)
+            sensorStreamJson.encodeToJsonElement(it)
         }
 
         val jsonLine = buildJsonObject {
@@ -472,12 +479,13 @@ open class DeveloperConsoleModel(
             put("values", values)
             put("timestamp", DateUtils.localNow.toString())
         }
-        streamNewLine(json.encodeToString(jsonLine))
+        streamNewLine(sensorStreamJson.encodeToString(jsonLine))
     }
 
     fun stopLocalStream() {
         dataManager.isLocalStreamRunning.value = false
         dataManager.localStreamJob?.cancel()
+        stopBackgroundStreamDevConsole()
         try {
             if(dataManager.sink != null) dataManager.sink?.close()
         } catch (e: Exception) {
@@ -486,46 +494,65 @@ open class DeveloperConsoleModel(
     }
 
     fun setUpLocalStream(file: PlatformFile?) {
-        if (file == null || dataManager.sink != null) return
+        if (file == null) return
 
-        viewModelScope.launch {
-            try {
-                if (dataManager.sink == null) {
-                    dataManager.streamingDirectory = file.path
-                    settings.putString(KEY_STREAMING_DIRECTORY, dataManager.streamingDirectory)
-                }
-                (dataManager.localStreamJob ?: CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        if (dataManager.sink == null) dataManager.sink = file.openSinkFromUri().buffer()
-                        dataManager.isLocalStreamRunning.value = true
+        if (streamDevConsoleInBackground()) {
+            dataManager.sinkPlatformFile = file
+        }else {
+            (dataManager.localStreamJob ?: CoroutineScope(Dispatchers.IO).launch {
+                val buffer = mutableListOf<String>()
+                var lastFlushTime = DateUtils.now.toEpochMilliseconds()
 
-                        for (line in dataManager.streamChannel) {
-                            dataManager.sink?.writeUtf8(line)
-                            dataManager.sink?.writeUtf8("\n")
-                            dataManager.sink?.flush()
-                        }
+                try {
+                    if (dataManager.sink == null) {
+                        dataManager.sink = file.openSinkFromUri().buffer()
+                        dataManager.streamingDirectory = file.path
+                        settings.putString(KEY_STREAMING_DIRECTORY, dataManager.streamingDirectory)
+                    }
+                    dataManager.isLocalStreamRunning.value = true
 
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        delay(5000)
-                        if (isActive && isLocalStreamRunning.value) {
-                            setUpLocalStream(file)
-                        }
-                    } finally {
-                        if (dataManager.sink != null) {
-                            try {
-                                dataManager.sink?.close()
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                    for (line in dataManager.streamChannel) {
+                        try {
+                            buffer.add(line)
+
+                            if (DateUtils.now.toEpochMilliseconds() - lastFlushTime >= WRITE_SENSORS_INTERVAL_MS) {
+                                buffer.forEach { line ->
+                                    dataManager.sink?.writeUtf8(line)
+                                    dataManager.sink?.writeUtf8("\n")
+                                }
+                                dataManager.sink?.flush()
+                                buffer.clear()
+                                lastFlushTime = DateUtils.now.toEpochMilliseconds()
+                            }
+                        } catch (e: Exception) {
+                            if (e.message?.contains("EBADF") == true) {
+                                SharedLogger.logger.debug { "EBADF detected, retrying sink setup" }
+                                dataManager.sink = file.openSinkFromUri().buffer()
+                                continue
                             }
                         }
                     }
-                }.also {
-                    dataManager.localStreamJob = it
-                })
-
-            } catch (e: Exception) {
-                e.printStackTrace()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    delay(5000)
+                    if (dataManager.isLocalStreamRunning.value) {
+                        setUpLocalStream(file)
+                    }
+                } finally {
+                    dataManager.sink?.let {
+                        try {
+                            it.close()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        } finally {
+                            dataManager.localStreamJob?.cancel()
+                            dataManager.sink = null
+                            dataManager.isLocalStreamRunning.value = false
+                        }
+                    }
+                }
+            }).also {
+                dataManager.localStreamJob = it
             }
         }
     }
@@ -545,9 +572,9 @@ open class DeveloperConsoleModel(
 
                         dataList.forEach { data ->
                             val values = data.values?.toList()?.let {
-                                json.encodeToJsonElement(it)
+                                sensorStreamJson.encodeToJsonElement(it)
                             } ?: data.uiValues?.let {
-                                json.encodeToJsonElement(it)
+                                sensorStreamJson.encodeToJsonElement(it)
                             }
 
                             if (values != null) {
@@ -558,7 +585,7 @@ open class DeveloperConsoleModel(
                                     put("values", values)
                                 }
 
-                                writeUtf8(json.encodeToString(jsonLine))
+                                writeUtf8(sensorStreamJson.encodeToString(jsonLine))
                                 writeUtf8("\n")
                             }
                         }

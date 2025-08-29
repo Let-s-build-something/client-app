@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.update
 expect fun getGravityListener(onSensorChanged: (event: SensorEvent?) -> Unit): SensorEventListener?
 expect suspend fun getAllSensors(): List<SensorEventListener>?
 
+expect fun streamDevConsoleInBackground(): Boolean
+expect fun stopBackgroundStreamDevConsole(): Boolean
+
 const val HZ_SPEED_SLOW = 5
 const val HZ_SPEED_NORMAL = 16
 const val HZ_SPEED_FAST = 50

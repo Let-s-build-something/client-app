@@ -71,21 +71,6 @@ internal fun httpClientFactory(
         install(ContentNegotiation) {
             json(json)
         }
-        install(HttpRequestRetry) {
-            retryIf { httpRequest, httpResponse ->
-                (httpResponse.status == HttpStatusCode.TooManyRequests)
-                    .also { if (it) SharedLogger.logger.warn { "rate limit exceeded for ${httpRequest.method} ${httpRequest.url}" } }
-            }
-            retryOnExceptionIf { _, throwable ->
-                (throwable is MatrixServerException && throwable.statusCode == HttpStatusCode.TooManyRequests)
-                    .also {
-                        if (it) {
-                            SharedLogger.logger.warn { (if(SharedLogger.logger.isDebugEnabled) "${throwable.message} - ${throwable.cause}" else "") + ": rate limit exceeded" }
-                        }
-                    }
-            }
-            exponentialDelay(maxDelayMs = 30_000, respectRetryAfterHeader = true)
-        }
         httpClientConfig(sharedModel = sharedModel)
         install(HttpSend)
     }.apply {
@@ -145,6 +130,21 @@ fun HttpClientConfig<*>.httpClientConfig(sharedModel: SharedModel) {
                     || header == IdToken
                     || header == AccessToken
         }
+    }
+    install(HttpRequestRetry) {
+        retryIf { httpRequest, httpResponse ->
+            (httpResponse.status == HttpStatusCode.TooManyRequests)
+                .also { if (it) SharedLogger.logger.warn { "rate limit exceeded for ${httpRequest.method} ${httpRequest.url}" } }
+        }
+        retryOnExceptionIf { _, throwable ->
+            (throwable is MatrixServerException && throwable.statusCode == HttpStatusCode.TooManyRequests)
+                .also {
+                    if (it) {
+                        SharedLogger.logger.warn { (if(SharedLogger.logger.isDebugEnabled) "${throwable.message} - ${throwable.cause}" else "") + ": rate limit exceeded" }
+                    }
+                }
+        }
+        exponentialDelay(maxDelayMs = 30_000, respectRetryAfterHeader = true)
     }
     ResponseObserver { response ->
         developerViewModel?.appendHttpLog(

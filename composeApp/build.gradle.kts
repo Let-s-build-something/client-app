@@ -112,6 +112,7 @@ kotlin {
 
             implementation(libs.koin.android)
 
+            implementation(libs.androidx.lifecycle.service)
             implementation(libs.androidx.splashscreen)
             implementation(libs.android.accompanist.permissions)
             implementation(libs.androidx.security.crypto.ktx)

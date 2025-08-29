@@ -1,12 +1,14 @@
 package data.sensor
 
 import android.content.Context
+import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorManager
 import android.hardware.SensorManager.SENSOR_DELAY_GAME
 import android.hardware.SensorManager.SENSOR_DELAY_NORMAL
 import android.hardware.SensorManager.SENSOR_DELAY_UI
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
@@ -71,3 +73,14 @@ private fun getSensorManager() = getKoin()
 private fun SensorEvent.toSensorEvent() = SensorEvent(
     values = values
 )
+
+actual fun stopBackgroundStreamDevConsole(): Boolean {
+    val context = getKoin().get<Context>()
+    return context.stopService(Intent(context, SensorStreamService::class.java))
+}
+actual fun streamDevConsoleInBackground(): Boolean {
+    val context = getKoin().get<Context>()
+    val intent = Intent(context, SensorStreamService::class.java)
+    ContextCompat.startForegroundService(context, intent)
+    return true
+}
